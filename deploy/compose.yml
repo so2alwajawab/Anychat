@@ -96,6 +96,15 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:3001:3000"
+    networks:
+      - default
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.anychat.entrypoints=websecure"
+      - "traefik.http.routers.anychat.rule=Host(`${ANYCHAT_DOMAIN:-anychat.egyptcamp.cloud}`)"
+      - "traefik.http.routers.anychat.tls.certresolver=letsencrypt"
+      - "traefik.http.services.anychat.loadbalancer.server.port=3000"
     depends_on:
       api:
         condition: service_healthy
@@ -109,3 +118,10 @@ services:
 volumes:
   pgdata:
   redisdata:
+
+networks:
+  default:
+    name: anychat_net
+  traefik_net:
+    external: true
+    name: chatwoot_chatwoot-net
