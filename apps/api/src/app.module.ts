@@ -13,6 +13,8 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { MetaModule } from './modules/meta/meta.module.js';
 import { ContentModule } from './modules/content/content.module.js';
+import { TemplatesModule } from './modules/templates/templates.module.js';
+import { WorkflowsModule } from './modules/workflows/workflows.module.js';
 
 const isDev = serverEnv.NODE_ENV === 'development';
 
@@ -50,6 +52,8 @@ const isDev = serverEnv.NODE_ENV === 'development';
     HealthModule,
     MetaModule,
     ContentModule,
+    TemplatesModule,
+    WorkflowsModule,
   ],
   providers: [
     { provide: APP_PIPE, useValue: new ValidationPipe({ whitelist: true, transform: true }) },

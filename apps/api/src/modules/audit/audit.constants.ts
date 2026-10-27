@@ -20,6 +20,15 @@ export const AUDIT_ACTIONS = {
   META_ASSET_DELETED: 'meta.asset.deleted',
   META_ASSET_HEALTH: 'meta.asset.health',
   META_SUBSCRIPTION_SET: 'meta.subscription.set',
+  WORKFLOW_CREATED: 'workflow.created',
+  WORKFLOW_UPDATED: 'workflow.updated',
+  WORKFLOW_PUBLISHED: 'workflow.published',
+  WORKFLOW_PAUSED: 'workflow.paused',
+  WORKFLOW_RESUMED: 'workflow.resumed',
+  WORKFLOW_DELETED: 'workflow.deleted',
+  TEMPLATE_CREATED: 'template.created',
+  TEMPLATE_UPDATED: 'template.updated',
+  TEMPLATE_DELETED: 'template.deleted',
 } as const;
 
 export interface AuditEntry {

@@ -111,6 +111,7 @@ model MetaConnectedAsset {
   subscriptions WebhookSubscription[]
   posts         Post[]
   comments      CommentEvent[]
+  workflows     Workflow[]
 
   @@index([platform])
   @@map("meta_connected_asset")
@@ -204,4 +205,52 @@ model CommentEvent {
   @@index([assetId, sourceCreatedAt])
   @@index([postId])
   @@map("comment_event")
+}
+
+model Workflow {
+  id             String   @id @default(uuid()) @db.Uuid
+  assetId        String?  @map("asset_id") @db.Uuid
+  name           String
+  description    String?
+  status         String   @default("draft")
+  currentVersion Int      @default(0) @map("current_version")
+  lockVersion    Int      @default(1) @map("lock_version")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  asset    MetaConnectedAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  versions WorkflowVersion[]
+
+  @@index([assetId])
+  @@index([status])
+  @@map("workflow")
+}
+
+model WorkflowVersion {
+  id            String    @id @default(uuid()) @db.Uuid
+  workflowId    String    @map("workflow_id") @db.Uuid
+  version       Int
+  definition    Json
+  state         String    @default("draft")
+  publishedNote String?   @map("published_note")
+  publishedAt   DateTime? @map("published_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, version])
+  @@index([workflowId, state])
+  @@map("workflow_version")
+}
+
+model MessageTemplate {
+  id               String   @id @default(uuid()) @db.Uuid
+  name             String   @unique
+  body             String
+  allowedVariables Json     @default("[]") @map("allowed_variables")
+  version          Int      @default(1)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("message_template")
 }

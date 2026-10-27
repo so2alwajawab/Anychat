@@ -20,6 +20,7 @@ export const ERROR_CODES = {
   GRAPH_API_ERROR: 'GRAPH_API_ERROR',
   ASSET_NOT_FOUND: 'ASSET_NOT_FOUND',
   SYNC_FAILED: 'SYNC_FAILED',
+  CONFLICT: 'CONFLICT',
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
@@ -46,6 +47,7 @@ const AR: Record<ErrorCode, string> = {
   GRAPH_API_ERROR: 'تعذّر الاتصال بواجهة Meta. حاول مرة أخرى لاحقاً.',
   ASSET_NOT_FOUND: 'الأصل المطلوب غير موجود.',
   SYNC_FAILED: 'فشلت عملية المزامنة من خوادم ميتا.',
+  CONFLICT: 'تعارض في حفظ التعديل: تم تعديل السجل من جلسة أخرى، يرجى إعادة تحميل الصفحة.',
 };
 
 export interface ApiErrorBody {

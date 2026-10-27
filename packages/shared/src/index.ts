@@ -4,6 +4,8 @@ export * from './password.js';
 export * from './security/redact.js';
 export * from './security/tokens.js';
 export * from './env.js';
+export * from './workflow/types.js';
+export * from './workflow/validator.js';
 
 export const API_PREFIX = '/api/v1';
 
@@ -20,6 +22,8 @@ export const API_ROUTES = {
   metaAssets: `${API_PREFIX}/meta/assets`,
   metaWebhookDiagnostics: `${API_PREFIX}/meta/webhooks/diagnostics`,
   webhooksMeta: `${API_PREFIX}/webhooks/meta`,
+  workflows: `${API_PREFIX}/workflows`,
+  templates: `${API_PREFIX}/templates`,
   healthz: '/healthz',
   readyz: '/readyz',
 } as const;
