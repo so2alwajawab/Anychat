@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
 import { ContentService } from './content.service.js';
 import type { ListCommentsQuery, ListContentQuery, SyncContentDto } from './dto.js';
 
@@ -22,6 +22,7 @@ export class ContentController {
   }
 
   @Post('sync')
+  @HttpCode(200)
   async sync(@Body() body: SyncContentDto) {
     return this.content.sync(body.assetId);
   }

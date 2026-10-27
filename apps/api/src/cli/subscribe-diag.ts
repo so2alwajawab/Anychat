@@ -70,6 +70,7 @@ async function main(): Promise<void> {
     console.log('');
 
     const current = await graphFetch(version, `/${asset.externalId}/subscribed_apps`, {
+      subscribed_fields: 'feed',
       access_token: pageToken,
       ...(proof ? { appsecret_proof: proof } : {}),
     });

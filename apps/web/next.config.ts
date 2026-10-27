@@ -5,8 +5,6 @@ const isStandalone = process.env.STANDALONE === "1" || process.platform === "lin
 
 const nextConfig: NextConfig = {
   output: isStandalone ? "standalone" : undefined,
-  cacheComponents: true,
-  partialPrefetching: true,
   rewrites() {
     return [
       { source: "/api/:path*", destination: `${apiTarget}/api/:path*` },
