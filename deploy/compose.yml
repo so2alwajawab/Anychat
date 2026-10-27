@@ -1,0 +1,111 @@
+# Production compose skeleton for AnyChat (Phase 1).
+# Ports are published on loopback only — a reverse proxy on the host must
+# terminate TLS and forward to 127.0.0.1:3001 (web) and 127.0.0.1:4001 (api).
+# Final proxy ports/targets pending owner confirmation (report Q15).
+name: anychat
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-anychat}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+      POSTGRES_DB: ${POSTGRES_DB:-anychat}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:25432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-anychat} -d $${POSTGRES_DB:-anychat}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD in deploy/.env}"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?}
+    volumes:
+      - redisdata:/data
+    ports:
+      - "127.0.0.1:26379:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: deploy/api.Dockerfile
+    command: ["sh", "-c", "cd apps/api && node node_modules/prisma/build/index.js migrate deploy"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-anychat}:${POSTGRES_PASSWORD:?}@postgres:5432/${POSTGRES_DB:-anychat}?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/api.Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-anychat}:${POSTGRES_PASSWORD:?}@postgres:5432/${POSTGRES_DB:-anychat}?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379/0
+      API_PORT: "4000"
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:3001}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:?set APP_ENCRYPTION_KEY in deploy/.env (32-byte base64)}
+      APP_ENCRYPTION_KEY_OLD: ${APP_ENCRYPTION_KEY_OLD:-}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?set PUBLIC_BASE_URL in deploy/.env}
+      META_APP_ID: ${META_APP_ID:-}
+      META_APP_SECRET: ${META_APP_SECRET:-}
+      META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN:-}
+      META_GRAPH_VERSION: ${META_GRAPH_VERSION:-v26.0}
+    ports:
+      - "127.0.0.1:4001:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/healthz >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/web.Dockerfile
+      args:
+        API_PROXY_TARGET: http://api:4000
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/login >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  pgdata:
+  redisdata:

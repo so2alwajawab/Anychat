@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TEST_DATABASE_URL: postgresql://anychat:anychat-dev@127.0.0.1:5432/anychat_test?schema=public
+      TEST_ADMIN_DATABASE_URL: postgresql://anychat:anychat-dev@127.0.0.1:5432/postgres
+      TEST_REDIS_URL: redis://127.0.0.1:6379/1
+      NEXT_TELEMETRY_DISABLED: "1"
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: anychat
+          POSTGRES_PASSWORD: anychat-dev
+          POSTGRES_DB: anychat_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U anychat -d anychat_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter api exec prisma generate
+        env:
+          DATABASE_URL: postgresql://user:password@localhost:5432/anychat
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Unit tests
+        run: pnpm -r test
+
+      - name: E2E tests (auth + authorization matrix)
+        run: pnpm --filter api test:e2e
+
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build API image
+        run: docker build -f deploy/api.Dockerfile -t anychat-api:ci .
+
+      - name: Build Web image
+        run: docker build -f deploy/web.Dockerfile -t anychat-web:ci .

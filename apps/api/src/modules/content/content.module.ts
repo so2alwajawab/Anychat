@@ -1,0 +1,42 @@
+import { Module, type OnModuleInit } from '@nestjs/common';
+import { PrismaModule } from '../../common/prisma/prisma.module.js';
+import { RedisModule } from '../../common/redis/redis.module.js';
+import { MetaModule } from '../meta/meta.module.js';
+import { WebhookService } from '../meta/webhook.service.js';
+import { ContentController } from './content.controller.js';
+import { ContentService } from './content.service.js';
+import { IngestQueueService } from './ingest-queue.service.js';
+import { NormalizationService } from './normalization.service.js';
+import { ReconciliationService } from './reconciliation.service.js';
+import { RetentionService } from './retention.service.js';
+
+@Module({
+  imports: [PrismaModule, RedisModule, MetaModule],
+  controllers: [ContentController],
+  providers: [
+    NormalizationService,
+    IngestQueueService,
+    ReconciliationService,
+    RetentionService,
+    ContentService,
+  ],
+  exports: [
+    ContentService,
+    NormalizationService,
+    IngestQueueService,
+    ReconciliationService,
+    RetentionService,
+  ],
+})
+export class ContentModule implements OnModuleInit {
+  constructor(
+    private readonly webhooks: WebhookService,
+    private readonly ingestQueue: IngestQueueService,
+  ) {}
+
+  onModuleInit(): void {
+    this.webhooks.registerDeliveryHook(async (id, hash) => {
+      await this.ingestQueue.enqueueDelivery(id, hash);
+    });
+  }
+}

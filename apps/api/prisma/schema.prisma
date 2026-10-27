@@ -1,0 +1,207 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model OwnerAccount {
+  id                String    @id @default(uuid()) @db.Uuid
+  username          String    @unique
+  passwordHash      String    @map("password_hash")
+  passwordChangedAt DateTime  @default(now()) @map("password_changed_at")
+  lockedUntil       DateTime? @map("locked_until")
+  failedLoginCount  Int       @default(0) @map("failed_login_count")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  sessions       OwnerSession[]
+  recoveryCodes  PasswordRecovery[]
+
+  @@map("owner_account")
+}
+
+model OwnerSession {
+  id                String    @id @default(uuid()) @db.Uuid
+  ownerId           String    @map("owner_id") @db.Uuid
+  tokenHash         String    @unique @map("token_hash")
+  csrfTokenHash     String?   @map("csrf_token_hash")
+  expiresAt         DateTime  @map("expires_at")
+  absoluteExpiresAt DateTime  @map("absolute_expires_at")
+  lastSeenAt        DateTime  @default(now()) @map("last_seen_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  ipPrefix          String?   @map("ip_prefix")
+  userAgentHash     String?   @map("user_agent_hash")
+  revokedAt         DateTime? @map("revoked_at")
+
+  owner OwnerAccount @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@index([expiresAt])
+  @@map("owner_session")
+}
+
+model PasswordRecovery {
+  id        String    @id @default(uuid()) @db.Uuid
+  ownerId   String    @map("owner_id") @db.Uuid
+  codeHash  String    @unique @map("code_hash")
+  createdAt DateTime  @default(now()) @map("created_at")
+  usedAt    DateTime? @map("used_at")
+
+  owner OwnerAccount @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@map("password_recovery")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  actorId   String?  @map("actor_id") @db.Uuid
+  actorType String   @default("owner") @map("actor_type")
+  action    String
+  entity    String?
+  entityId  String?  @map("entity_id")
+  outcome   String   @default("success")
+  ip        String?
+  userAgent String?  @map("user_agent")
+  meta      Json?
+
+  @@index([createdAt(sort: Desc)])
+  @@index([action])
+  @@map("audit_log")
+}
+
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_setting")
+}
+
+model MetaAppConfig {
+  id                       String    @id @default(uuid()) @db.Uuid
+  appId                    String    @map("app_id")
+  appSecretCipher          String    @map("app_secret_cipher")
+  webhookVerifyTokenCipher String    @map("webhook_verify_token_cipher")
+  graphApiVersion          String    @default("v26.0") @map("graph_api_version")
+  appsecretProofEnabled    Boolean   @default(true) @map("appsecret_proof_enabled")
+  rotatedAt                DateTime? @map("rotated_at")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+
+  @@map("meta_app_config")
+}
+
+model MetaConnectedAsset {
+  id               String    @id @default(uuid()) @db.Uuid
+  platform         String
+  externalId       String    @unique @map("external_id")
+  displayName      String    @map("display_name")
+  linkedPageId     String?   @map("linked_page_id")
+  permissionsGrant Json      @default("[]") @map("permissions_granted")
+  connectionStatus String    @default("connected") @map("connection_status")
+  selected         Boolean   @default(false)
+  connectedAt      DateTime  @default(now()) @map("connected_at")
+  lastHealthCheckAt DateTime? @map("last_health_check_at")
+
+  credential    MetaCredential?
+  subscriptions WebhookSubscription[]
+  posts         Post[]
+  comments      CommentEvent[]
+
+  @@index([platform])
+  @@map("meta_connected_asset")
+}
+
+model MetaCredential {
+  id              String    @id @default(uuid()) @db.Uuid
+  assetId         String    @unique @map("asset_id") @db.Uuid
+  ciphertext      String
+  nonce           String
+  keyVersion      String    @map("key_version")
+  grantedScopes   Json      @default("[]") @map("granted_scopes")
+  expiresAt       DateTime? @map("expires_at")
+  lastValidatedAt DateTime? @map("last_validated_at")
+  status          String    @default("active")
+
+  asset MetaConnectedAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@map("meta_credential")
+}
+
+model WebhookSubscription {
+  id                 String    @id @default(uuid()) @db.Uuid
+  assetId            String    @map("asset_id") @db.Uuid
+  object             String
+  subscribedFields   Json      @default("[]") @map("subscribed_fields")
+  subscriptionStatus String    @default("pending") @map("subscription_status")
+  lastEventAt        DateTime? @map("last_event_at")
+  lastVerifiedAt     DateTime? @map("last_verified_at")
+  diagnostics        Json?
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  asset MetaConnectedAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, object])
+  @@index([assetId])
+  @@map("webhook_subscription")
+}
+
+model WebhookDelivery {
+  id              String    @id @default(uuid()) @db.Uuid
+  deliveryHash    String    @unique @map("delivery_hash")
+  objectType      String    @map("object_type")
+  payload         Json
+  signatureStatus String    @map("signature_status")
+  receivedAt      DateTime  @default(now()) @map("received_at")
+  processStatus   String    @default("received") @map("process_status")
+
+  @@index([receivedAt(sort: Desc)])
+  @@map("webhook_delivery")
+}
+
+model Post {
+  id                 String    @id @default(uuid()) @db.Uuid
+  assetId            String    @map("asset_id") @db.Uuid
+  externalId         String    @map("external_id")
+  platform           String
+  messagePreview     String?   @map("message_preview")
+  createdTime        DateTime  @map("created_time")
+  permalink          String?
+  isEligibleForReply Boolean   @default(true) @map("is_eligible_for_reply")
+  syncedAt           DateTime  @default(now()) @map("synced_at")
+
+  asset    MetaConnectedAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  comments CommentEvent[]
+
+  @@unique([platform, externalId])
+  @@index([assetId])
+  @@map("post")
+}
+
+model CommentEvent {
+  id                String    @id @default(uuid()) @db.Uuid
+  assetId           String    @map("asset_id") @db.Uuid
+  postId            String?   @map("post_id") @db.Uuid
+  platform          String
+  externalCommentId String    @map("external_comment_id")
+  parentCommentId   String?   @map("parent_comment_id")
+  authorScopedId    String    @map("author_scoped_id")
+  authorUsername    String?   @map("author_username")
+  text              String
+  sourceCreatedAt   DateTime  @map("source_created_at")
+  rawPayloadRef     String?   @map("raw_payload_ref")
+  dedupeKey         String    @unique @map("dedupe_key")
+  receivedAt        DateTime  @default(now()) @map("received_at")
+  direction         String    @default("inbound")
+
+  asset MetaConnectedAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  post  Post?              @relation(fields: [postId], references: [id], onDelete: SetNull)
+
+  @@index([assetId, sourceCreatedAt])
+  @@index([postId])
+  @@map("comment_event")
+}

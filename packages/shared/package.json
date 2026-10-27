@@ -1,0 +1,38 @@
+{
+  "name": "@anychat/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./i18n": {
+      "types": "./dist/i18n/ar.d.ts",
+      "default": "./dist/i18n/ar.js"
+    },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "default": "./dist/errors.js"
+    },
+    "./password": {
+      "types": "./dist/password.d.ts",
+      "default": "./dist/password.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "oxlint src"
+  },
+  "dependencies": {
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "oxlint": "^1.58.0",
+    "typescript": "^5.9.3"
+  }
+}

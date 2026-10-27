@@ -1,0 +1,27 @@
+node_modules/
+dist/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# prisma generated client
+apps/api/src/generated/
+
+.env
+.env.*
+!.env.example
+
+pnpm-debug.log*
+*.log
+
+# backups / local artifacts
+backups/
+*.dump
+*.rdb
+
+# editor / OS
+.DS_Store
+.idea/
+.vscode/
+!.vscode/extensions.json

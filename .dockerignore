@@ -1,0 +1,16 @@
+# Never ship host artifacts into image builds
+**/node_modules
+.git
+**/.next
+**/dist
+**/coverage
+**/*.tsbuildinfo
+apps/api/src/generated
+**/.env
+**/.env.*
+!.env.example
+backups
+*.log
+*.rdb
+.github
+docs
