@@ -478,22 +478,36 @@ export class WorkflowsService {
 
     // Walk through graph
     let currentId = trigger.id;
-    let keepGoing = true;
+    let chosenHandle: string | null = null;
+    let stepCount = 0;
+    const maxSteps = 50;
 
-    while (keepGoing) {
+    while (stepCount++ < maxSteps) {
       const outEdges = edges.filter((e) => e.source === currentId);
       if (outEdges.length === 0) break;
 
-      const nextEdge = outEdges[0];
+      let nextEdge: (typeof edges)[0] | undefined;
+      if (chosenHandle) {
+        nextEdge =
+          outEdges.find((e) => e.sourceHandle === chosenHandle) ??
+          (chosenHandle === 'true' ? outEdges.find((e) => !e.sourceHandle) : undefined);
+      } else {
+        nextEdge = outEdges[0];
+      }
+
       if (!nextEdge) break;
 
       const nextNode = nodes.find((n) => n.id === nextEdge.target);
       if (!nextNode) break;
 
       currentId = nextNode.id;
+      chosenHandle = null;
 
       if (nextNode.type === 'condition.text') {
-        const data = (nextNode.data ?? {}) as { op?: 'AND' | 'OR'; rules?: Array<{ kind: string; value: string; caseSensitive?: boolean }> };
+        const data = (nextNode.data ?? {}) as {
+          op?: 'AND' | 'OR';
+          rules?: Array<{ kind: string; value: string; caseSensitive?: boolean }>;
+        };
         const rules = data.rules ?? [];
         const op = data.op ?? 'OR';
 
@@ -515,15 +529,24 @@ export class WorkflowsService {
             status: 'passed',
             message: `تحقق الشرط بنجاح (مطابقة: ${rules.map((r) => r.value).join(' أو ')})`,
           });
+          chosenHandle = 'true';
         } else {
           trace.push({
             nodeId: nextNode.id,
             nodeType: nextNode.type,
             status: 'failed',
-            message: 'لم يتحقق الشرط، تم إيقاف المتابعة لهذا الفرع',
+            message: 'لم يتحقق الشرط، التوجه لمسار البديل إن وجد',
           });
-          break;
+          chosenHandle = 'false';
         }
+      } else if (nextNode.type === 'condition.asset_post') {
+        trace.push({
+          nodeId: nextNode.id,
+          nodeType: nextNode.type,
+          status: 'passed',
+          message: 'تم التحقق من مطابقة الصفحة والمنشور في بيئة الاختبار',
+        });
+        chosenHandle = 'true';
       } else if (nextNode.type === 'action.public_reply') {
         const data = (nextNode.data ?? {}) as { message?: string };
         trace.push({
@@ -539,6 +562,25 @@ export class WorkflowsService {
           nodeType: nextNode.type,
           status: 'executed',
           message: `تمت محاكاة إرسال الرد في رسالة خاصة بنجاح: "${data.message ?? ''}"`,
+        });
+      } else if (nextNode.type === 'action.use_template') {
+        const data = (nextNode.data ?? {}) as { templateId?: string; templateName?: string };
+        let templateText = '';
+        if (data.templateId) {
+          try {
+            const tmpl = await this.prisma.messageTemplate.findUnique({
+              where: { id: data.templateId },
+            });
+            if (tmpl) templateText = ` - "${tmpl.body}"`;
+          } catch {
+            // Ignore if template not found
+          }
+        }
+        trace.push({
+          nodeId: nextNode.id,
+          nodeType: nextNode.type,
+          status: 'executed',
+          message: `تم استخدام القالب "${data.templateName || data.templateId || ''}"${templateText}`,
         });
       } else if (nextNode.type === 'action.stop') {
         trace.push({

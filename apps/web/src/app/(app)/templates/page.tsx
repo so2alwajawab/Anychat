@@ -47,16 +47,20 @@ export default function TemplatesPage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     getJson<MessageTemplate[]>("/api/v1/templates")
       .then((data) => {
-        setTemplates(data);
+        if (!cancelled) setTemplates(data);
       })
       .catch((err: unknown) => {
-        setError(err instanceof ApiError ? err.message : "فشل تحميل القوالب");
+        if (!cancelled) setError(err instanceof ApiError ? err.message : "فشل تحميل القوالب");
       })
       .finally(() => {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const openCreateModal = () => {

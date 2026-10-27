@@ -187,4 +187,79 @@ describe('WorkflowsService (Gate G4 Unit Tests)', () => {
     expect(result.trace[1]?.status).toBe('passed'); // condition matched "سعر"
     expect(result.trace[2]?.status).toBe('executed'); // public reply executed
   });
+
+  it('testRun follows false branch when condition fails and false edge exists', async () => {
+    const branchDef = {
+      schemaVersion: 1,
+      nodes: [
+        { id: 'node-trigger', type: 'trigger.comment', position: { x: 0, y: 0 }, data: {} },
+        {
+          id: 'node-condition',
+          type: 'condition.text',
+          position: { x: 0, y: 100 },
+          data: { op: 'OR', rules: [{ kind: 'text_contains', value: 'خصم', caseSensitive: false }] },
+        },
+        {
+          id: 'node-fallback-reply',
+          type: 'action.public_reply',
+          position: { x: 0, y: 200 },
+          data: { message: 'شكراً لتواصلك معنا' },
+        },
+      ],
+      edges: [
+        { id: 'e1', source: 'node-trigger', target: 'node-condition' },
+        { id: 'e2', source: 'node-condition', target: 'node-fallback-reply', sourceHandle: 'false' },
+      ],
+      settings: {},
+    };
+
+    mockPrisma.workflow.findUnique.mockResolvedValue({
+      id: 'wf-2',
+      name: 'مسار تفرع',
+      versions: [{ id: 'v-1', version: 1, definition: branchDef, state: 'published' }],
+    });
+
+    const result = await service.testRun('wf-2', { commentText: 'مرحبا بكم' });
+    expect(result.success).toBe(true);
+    expect(result.trace.length).toBe(3);
+    expect(result.trace[0]?.status).toBe('executed');
+    expect(result.trace[1]?.status).toBe('failed');
+    expect(result.trace[2]?.status).toBe('executed');
+    expect(result.trace[2]?.nodeId).toBe('node-fallback-reply');
+  });
+
+  it('testRun simulates action.use_template with resolved template text', async () => {
+    const tplDef = {
+      schemaVersion: 1,
+      nodes: [
+        { id: 'node-trigger', type: 'trigger.comment', position: { x: 0, y: 0 }, data: {} },
+        {
+          id: 'node-template',
+          type: 'action.use_template',
+          position: { x: 0, y: 100 },
+          data: { templateId: 'tpl-1', templateName: 'قالب الترحيب' },
+        },
+      ],
+      edges: [{ id: 'e1', source: 'node-trigger', target: 'node-template' }],
+      settings: {},
+    };
+
+    mockPrisma.workflow.findUnique.mockResolvedValue({
+      id: 'wf-3',
+      name: 'مسار قوالب',
+      versions: [{ id: 'v-1', version: 1, definition: tplDef, state: 'published' }],
+    });
+
+    mockPrisma.messageTemplate.findUnique = vi.fn().mockResolvedValue({
+      id: 'tpl-1',
+      body: 'أهلاً وسهلاً بك يا {{commenter_name}}',
+    });
+
+    const result = await service.testRun('wf-3', { commentText: 'السلام عليكم' });
+    expect(result.success).toBe(true);
+    expect(result.trace.length).toBe(2);
+    expect(result.trace[1]?.status).toBe('executed');
+    expect(result.trace[1]?.message).toContain('قالب الترحيب');
+    expect(result.trace[1]?.message).toContain('أهلاً وسهلاً بك');
+  });
 });

@@ -113,14 +113,27 @@ export default function WorkflowsPage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     getJson<WorkflowListItem[]>("/api/v1/workflows")
-      .then((data) => setWorkflows(data))
-      .catch((err: unknown) => setError(err instanceof ApiError ? err.message : "فشل تحميل مسارات الأتمتة"))
-      .finally(() => setLoading(false));
+      .then((data) => {
+        if (!cancelled) setWorkflows(data);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof ApiError ? err.message : "فشل تحميل مسارات الأتمتة");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
     getJson<TemplateOption[]>("/api/v1/templates")
-      .then((data) => setTemplates(data))
+      .then((data) => {
+        if (!cancelled) setTemplates(data);
+      })
       .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const openBuilder = (id: string) => {
