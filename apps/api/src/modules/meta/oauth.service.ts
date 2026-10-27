@@ -112,26 +112,35 @@ export class OauthService {
         const asset = await this.assets.getByExternalId(page.id);
         if (!asset) continue;
         step = 'subscribe_page';
-        const result = await this.subscriptions.subscribePage(
-          asset.id,
-          page.id,
-          page.accessToken,
-          [...PAGE_WEBHOOK_FIELDS],
-          record.ownerId,
-        );
-        if (result.ok) subscriptionsOk += 1;
-        else subscriptionsFailed += 1;
+        try {
+          const result = await this.subscriptions.subscribePage(
+            asset.id,
+            page.id,
+            page.accessToken,
+            [...PAGE_WEBHOOK_FIELDS],
+            record.ownerId,
+          );
+          if (result.ok) subscriptionsOk += 1;
+          else subscriptionsFailed += 1;
+        } catch (subErr) {
+          this.logger.warn(`subscribePage error: ${subErr instanceof Error ? subErr.message : String(subErr)}`);
+          subscriptionsFailed += 1;
+        }
 
         const ig = igByPage.get(page.id);
         if (ig?.igUserId) {
           const igAsset = await this.assets.getByExternalId(ig.igUserId);
           if (igAsset) {
             step = 'subscribe_instagram';
-            await this.subscriptions.recordInstagramDashboard(
-              igAsset.id,
-              [...IG_WEBHOOK_FIELDS],
-              record.ownerId,
-            );
+            try {
+              await this.subscriptions.recordInstagramDashboard(
+                igAsset.id,
+                [...IG_WEBHOOK_FIELDS],
+                record.ownerId,
+              );
+            } catch (igErr) {
+              this.logger.warn(`recordInstagramDashboard error: ${igErr instanceof Error ? igErr.message : String(igErr)}`);
+            }
           }
         }
       }

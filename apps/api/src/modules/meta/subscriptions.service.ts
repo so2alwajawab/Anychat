@@ -48,23 +48,27 @@ export class SubscriptionsService {
     } catch (err) {
       const code = err instanceof GraphApiError ? err.code : 0;
       const message = err instanceof Error ? err.message : 'unknown';
-      await this.prisma.webhookSubscription.upsert({
-        where: { assetId_object: { assetId, object: 'page' } },
-        update: {
-          subscriptionStatus: 'failed',
-          subscribedFields: fields,
-          lastVerifiedAt: new Date(),
-          diagnostics: { errorCode: code, errorMessage: message.slice(0, 300) },
-        },
-        create: {
-          assetId,
-          object: 'page',
-          subscribedFields: fields,
-          subscriptionStatus: 'failed',
-          lastVerifiedAt: new Date(),
-          diagnostics: { errorCode: code, errorMessage: message.slice(0, 300) },
-        },
-      });
+      try {
+        await this.prisma.webhookSubscription.upsert({
+          where: { assetId_object: { assetId, object: 'page' } },
+          update: {
+            subscriptionStatus: 'failed',
+            subscribedFields: fields,
+            lastVerifiedAt: new Date(),
+            diagnostics: { errorCode: code, errorMessage: message.slice(0, 300) },
+          },
+          create: {
+            assetId,
+            object: 'page',
+            subscribedFields: fields,
+            subscriptionStatus: 'failed',
+            lastVerifiedAt: new Date(),
+            diagnostics: { errorCode: code, errorMessage: message.slice(0, 300) },
+          },
+        });
+      } catch {
+        // preserve original error code
+      }
       return { ok: false, code };
     }
   }
