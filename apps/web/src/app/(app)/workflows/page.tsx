@@ -282,22 +282,26 @@ export default function WorkflowsPage() {
     setPublishing(true);
     setStatusMessage(null);
     try {
-      // 1. Save draft first
-      const saveRes = await putJson<{ lockVersion: number }>(`/api/v1/workflows/${activeWorkflow.id}`, {
-        name: workflowName.trim(),
-        description: workflowDesc.trim() || null,
-        definition: currentDefinition,
-        lockVersion,
-      });
-      setLockVersion(saveRes.lockVersion);
-
-      // 2. Publish
       const pubRes = await postJson<{ workflow: { currentVersion: number; status: string; lockVersion: number } }>(
         `/api/v1/workflows/${activeWorkflow.id}/publish`,
-        {},
+        {
+          name: workflowName.trim(),
+          description: workflowDesc.trim() || undefined,
+          definition: currentDefinition,
+        },
       );
       setLockVersion(pubRes.workflow.lockVersion);
-      setActiveWorkflow((prev) => (prev ? { ...prev, status: "published", currentVersion: pubRes.workflow.currentVersion } : null));
+      setActiveWorkflow((prev) =>
+        prev
+          ? {
+              ...prev,
+              name: workflowName.trim(),
+              status: "published",
+              currentVersion: pubRes.workflow.currentVersion,
+              lockVersion: pubRes.workflow.lockVersion,
+            }
+          : null,
+      );
       setStatusMessage({
         type: "success",
         text: `تم نشر المسار بنجاح كإصدار نشط رقم (v${pubRes.workflow.currentVersion})!`,

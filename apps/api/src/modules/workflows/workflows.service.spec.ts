@@ -23,6 +23,7 @@ describe('WorkflowsService (Gate G4 Unit Tests)', () => {
         update: vi.fn(),
         updateMany: vi.fn(),
         delete: vi.fn(),
+        deleteMany: vi.fn(),
       },
       metaConnectedAsset: {
         findMany: vi.fn().mockResolvedValue([{ id: 'asset-1' }]),

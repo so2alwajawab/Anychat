@@ -221,13 +221,13 @@ export class WorkflowsService {
     if (draft) {
       await this.prisma.workflowVersion.update({
         where: { id: draft.id },
-        data: { definition: dto.definition as object },
+        data: { definition: dto.definition as object, version: 0 },
       });
     } else {
       await this.prisma.workflowVersion.create({
         data: {
           workflowId: id,
-          version: wf.currentVersion + 1,
+          version: 0,
           definition: dto.definition as object,
           state: 'draft',
         },
@@ -265,8 +265,15 @@ export class WorkflowsService {
       throw new NotFoundException('مخطط الأتمتة غير موجود');
     }
 
-    const draft = wf.versions.find((v) => v.state === 'draft');
-    if (!draft) {
+    let draftDef: WorkflowDefinition | null = (dto.definition as WorkflowDefinition) ?? null;
+    if (!draftDef) {
+      const draft = wf.versions.find((v) => v.state === 'draft');
+      if (draft) {
+        draftDef = draft.definition as unknown as WorkflowDefinition;
+      }
+    }
+
+    if (!draftDef) {
       throw new BadRequestException('لا توجد مسودة جديدة قابلة للنشر');
     }
 
@@ -278,7 +285,7 @@ export class WorkflowsService {
     const availableTemplateIds = templates.map((t) => t.id);
 
     // Validate strictly before publishing
-    const validation = validateWorkflowDefinition(draft.definition, {
+    const validation = validateWorkflowDefinition(draftDef, {
       availableAssetIds,
       availableTemplateIds,
     });
@@ -298,29 +305,29 @@ export class WorkflowsService {
       data: { state: 'archived' },
     });
 
+    // Clean up any old draft records to avoid unique constraint collision
+    await this.prisma.workflowVersion.deleteMany({
+      where: { workflowId: id, state: 'draft' },
+    });
+
     // Freeze draft into an immutable published version
     const publishedVersion = await this.prisma.workflowVersion.create({
       data: {
         workflowId: id,
         version: nextVersion,
-        definition: draft.definition as object,
+        definition: draftDef as object,
         state: 'published',
         publishedNote: dto.publishedNote?.trim(),
         publishedAt: new Date(),
       },
     });
 
-    // Delete or update the temporary draft record so editing can start fresh
-    await this.prisma.workflowVersion.delete({
-      where: { id: draft.id },
-    });
-
-    // Recreate a draft copy from the newly published version for ongoing edits
+    // Recreate a clean working draft copy with version: 0 for ongoing edits
     await this.prisma.workflowVersion.create({
       data: {
         workflowId: id,
-        version: nextVersion + 1,
-        definition: draft.definition as object,
+        version: 0,
+        definition: draftDef as object,
         state: 'draft',
       },
     });
@@ -328,6 +335,8 @@ export class WorkflowsService {
     const updatedWf = await this.prisma.workflow.update({
       where: { id },
       data: {
+        name: dto.name ? dto.name.trim() : wf.name,
+        description: dto.description !== undefined ? dto.description?.trim() : wf.description,
         status: 'published',
         currentVersion: nextVersion,
         lockVersion: wf.lockVersion + 1,
