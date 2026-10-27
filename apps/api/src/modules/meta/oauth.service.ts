@@ -15,6 +15,11 @@ function pkceChallenge(verifier: string): string {
   return createHash('sha256').update(verifier).digest('base64url');
 }
 
+/** Strip token-like values from Graph error messages before logging/audit. */
+function redactTokens(message: string): string {
+  return message.replace(/EAA[A-Za-z0-9._-]+/g, '[REDACTED]').slice(0, 300);
+}
+
 @Injectable()
 export class OauthService {
   private readonly logger = new NestLogger(OauthService.name);
@@ -80,20 +85,25 @@ export class OauthService {
       return failRedirect('missing_code');
     }
 
+    let step = 'exchange_short';
     try {
       const shortLived = await this.graph.exchangeShortLived({
         code,
         redirectUri: this.config.redirectUri(),
         codeVerifier: record.verifier,
       });
+      step = 'exchange_long';
       const longLived = await this.graph.exchangeLongLived(shortLived.accessToken);
+      step = 'list_pages';
       const pages = await this.graph.listPages(longLived.accessToken);
 
+      step = 'discover';
       const igByPage = new Map<string, Awaited<ReturnType<GraphClient['getPageInstagram']>>>();
       for (const page of pages) {
         igByPage.set(page.id, await this.graph.getPageInstagram(page.id, page.accessToken));
       }
 
+      step = 'store_assets';
       const counts = await this.assets.upsertDiscovered(pages, igByPage);
 
       let subscriptionsOk = 0;
@@ -101,6 +111,7 @@ export class OauthService {
       for (const page of pages) {
         const asset = await this.assets.getByExternalId(page.id);
         if (!asset) continue;
+        step = 'subscribe_page';
         const result = await this.subscriptions.subscribePage(
           asset.id,
           page.id,
@@ -115,6 +126,7 @@ export class OauthService {
         if (ig?.igUserId) {
           const igAsset = await this.assets.getByExternalId(ig.igUserId);
           if (igAsset) {
+            step = 'subscribe_instagram';
             await this.subscriptions.recordInstagramDashboard(
               igAsset.id,
               [...IG_WEBHOOK_FIELDS],
@@ -124,6 +136,7 @@ export class OauthService {
         }
       }
 
+      step = 'audit';
       await this.audit.record({
         action: AUDIT_ACTIONS.META_OAUTH_COMPLETED,
         actorId: record.ownerId,
@@ -137,14 +150,22 @@ export class OauthService {
       });
       return { redirectUrl: `${this.webBase()}/connections?oauth=success` };
     } catch (err) {
-      const errorCode = err instanceof GraphApiError ? String(err.code) : 'exchange_failed';
-      this.logger.warn(`oauth callback failed: ${errorCode}`);
+      const isGraph = err instanceof GraphApiError;
+      const graphCode = isGraph ? err.code : null;
+      const subcode = isGraph ? err.subcode : null;
+      const fbtraceId = isGraph ? err.fbtraceId : undefined;
+      const rawMessage = err instanceof Error ? err.message : 'unknown error';
+      const message = redactTokens(rawMessage);
+      const errorCode = isGraph ? `${step}:${err.code}` : `${step}_failed`;
+      this.logger.warn(
+        `oauth callback failed at step=${step} code=${graphCode ?? '-'} subcode=${subcode ?? '-'} fbtrace=${fbtraceId ?? '-'} message=${message}`,
+      );
       await this.audit.record({
         action: AUDIT_ACTIONS.META_OAUTH_FAILED,
         actorId: record.ownerId,
         entity: 'meta_oauth',
         outcome: 'failure',
-        meta: { errorCode },
+        meta: { step, errorCode: graphCode, subcode, fbtraceId, message },
       });
       return failRedirect(errorCode);
     }

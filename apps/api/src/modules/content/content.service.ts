@@ -4,6 +4,8 @@ import { PrismaService } from '../../common/prisma/prisma.module.js';
 import { ReconciliationService } from './reconciliation.service.js';
 import type { ListCommentsQuery, ListContentQuery } from './dto.js';
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 @Injectable()
 export class ContentService {
   constructor(
@@ -130,6 +132,9 @@ export class ContentService {
   }
 
   async getComment(id: string) {
+    if (!UUID_PATTERN.test(id)) {
+      throw new HttpException(apiError(404, ERROR_CODES.NOT_FOUND), 404);
+    }
     const comment = await this.prisma.commentEvent.findUnique({
       where: { id },
       include: {

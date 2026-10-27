@@ -101,6 +101,7 @@ services:
       - traefik_net
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=chatwoot_chatwoot-net"
       - "traefik.http.routers.anychat.entrypoints=websecure"
       - "traefik.http.routers.anychat.rule=Host(`${ANYCHAT_DOMAIN:-anychat.egyptcamp.cloud}`)"
       - "traefik.http.routers.anychat.tls.certresolver=letsencrypt"
