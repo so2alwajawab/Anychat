@@ -13,6 +13,7 @@ export interface ExecuteReplyInput {
   platform: 'facebook' | 'instagram';
   targetCommentId: string;
   renderedMessage: string;
+  imageUrl?: string;
 }
 
 export interface ExecutePrivateReplyInput {
@@ -22,6 +23,7 @@ export interface ExecutePrivateReplyInput {
   targetCommentId: string;
   sourceCreatedAt: Date;
   renderedMessage: string;
+  imageUrl?: string;
 }
 
 export interface ExecuteReplyResult {
@@ -202,6 +204,7 @@ export class OutboundService {
           input.targetCommentId,
           pageToken,
           input.renderedMessage,
+          input.imageUrl,
         );
       }
 
@@ -485,6 +488,7 @@ export class OutboundService {
           pageToken,
           input.targetCommentId,
           input.renderedMessage,
+          input.imageUrl,
         );
       } else {
         sendResult = await this.graph.sendPagePrivateReply(
@@ -492,6 +496,7 @@ export class OutboundService {
           pageToken,
           input.targetCommentId,
           input.renderedMessage,
+          input.imageUrl,
         );
       }
 

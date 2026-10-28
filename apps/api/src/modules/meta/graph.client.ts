@@ -94,6 +94,7 @@ export abstract class GraphClient {
     commentId: string,
     pageToken: string,
     message: string,
+    attachmentUrl?: string,
   ): Promise<{ id: string }>;
 
   abstract publishInstagramCommentReply(
@@ -107,6 +108,7 @@ export abstract class GraphClient {
     pageToken: string,
     commentId: string,
     message: string,
+    attachmentUrl?: string,
   ): Promise<{ id: string }>;
 
   abstract sendInstagramPrivateReply(
@@ -114,6 +116,7 @@ export abstract class GraphClient {
     pageToken: string,
     commentId: string,
     message: string,
+    attachmentUrl?: string,
   ): Promise<{ id: string }>;
 
   abstract checkCommentReplyExists(
@@ -379,10 +382,12 @@ export class HttpGraphClient extends GraphClient {
     commentId: string,
     pageToken: string,
     message: string,
+    attachmentUrl?: string,
   ): Promise<{ id: string }> {
     const cfg = await this.config.requireConfig();
     const body = await this.post(`/${commentId}/comments`, {
       message,
+      ...(attachmentUrl ? { attachment_url: attachmentUrl } : {}),
       access_token: pageToken,
       ...(await this.proof(pageToken, cfg)),
     });
@@ -408,11 +413,19 @@ export class HttpGraphClient extends GraphClient {
     pageToken: string,
     commentId: string,
     message: string,
+    attachmentUrl?: string,
   ): Promise<{ id: string }> {
     const cfg = await this.config.requireConfig();
+    const messagePayload: Record<string, unknown> = { text: message };
+    if (attachmentUrl) {
+      messagePayload.attachment = {
+        type: 'image',
+        payload: { url: attachmentUrl, is_reusable: true },
+      };
+    }
     const body = await this.post(`/${pageId}/messages`, {
       recipient: JSON.stringify({ comment_id: commentId }),
-      message: JSON.stringify({ text: message }),
+      message: JSON.stringify(messagePayload),
       messaging_type: 'RESPONSE',
       access_token: pageToken,
       ...(await this.proof(pageToken, cfg)),
@@ -425,11 +438,19 @@ export class HttpGraphClient extends GraphClient {
     pageToken: string,
     commentId: string,
     message: string,
+    attachmentUrl?: string,
   ): Promise<{ id: string }> {
     const cfg = await this.config.requireConfig();
+    const messagePayload: Record<string, unknown> = { text: message };
+    if (attachmentUrl) {
+      messagePayload.attachment = {
+        type: 'image',
+        payload: { url: attachmentUrl, is_reusable: true },
+      };
+    }
     const body = await this.post(`/${pageIdOrIgId}/messages`, {
       recipient: JSON.stringify({ comment_id: commentId }),
-      message: JSON.stringify({ text: message }),
+      message: JSON.stringify(messagePayload),
       access_token: pageToken,
       ...(await this.proof(pageToken, cfg)),
     });

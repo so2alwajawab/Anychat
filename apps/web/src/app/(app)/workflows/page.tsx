@@ -18,6 +18,7 @@ import "@xyflow/react/dist/style.css";
 import {
   ALLOW_LISTED_VARIABLES,
   validateWorkflowDefinition,
+  type MatchKind,
   type WorkflowDefinition,
   type WorkflowNodeType,
 } from "@anychat/shared";
@@ -58,6 +59,60 @@ interface TemplateOption {
   name: string;
 }
 
+interface ContentPostItem {
+  id: string;
+  assetId: string;
+  assetName: string;
+  platform: "facebook" | "instagram";
+  externalId: string;
+  messagePreview: string | null;
+  permalink: string | null;
+  isEligibleForReply: boolean;
+  createdTime: string;
+  commentsCount: number;
+}
+
+const ARABIC_VARIABLES = [
+  { key: "commenter_name", label: "👤 اسم العميل", desc: "اسم العميل صاحب التعليق" },
+  { key: "comment_text", label: "💬 نص التعليق", desc: "التعليق الذي كتبه العميل" },
+  { key: "page_name", label: "🏢 اسم الصفحة", desc: "اسم صفحة المتجر أو النشاط" },
+  { key: "current_date", label: "📅 تاريخ اليوم", desc: "تاريخ اليوم بالتنسيق المحلي" },
+  { key: "post.permalink", label: "🔗 رابط المنشور", desc: "رابط المنشور الأصلي" },
+];
+
+const KEYWORD_PRESETS = [
+  {
+    category: "استفسارات الأسعار",
+    icon: "💰",
+    words: ["سعر", "بكام", "تكلفة", "السعر", "price"],
+  },
+  {
+    category: "الطلب والشراء",
+    icon: "🛒",
+    words: ["طلب", "شراء", "حجز", "اوردر", "order"],
+  },
+  {
+    category: "الفروع والعنوان",
+    icon: "📍",
+    words: ["عنوان", "المكان", "الفروع", "لوكيشن", "location"],
+  },
+  {
+    category: "الشحن والتوصيل",
+    icon: "🚚",
+    words: ["شحن", "توصيل", "مصاريف الشحن", "shipping"],
+  },
+];
+
+function simulateMessage(text?: string) {
+  if (!text) return "اكتب نص الرد في الحقل أعلاه لمعاينة كيف سيظهر للعميل...";
+  return text
+    .replace(/\{\{commenter_name\}\}/g, "أحمد محمود")
+    .replace(/\{\{comment_text\}\}/g, "بكام الطقم ده وهل متوفر شحن للقاهرة؟")
+    .replace(/\{\{page_name\}\}/g, "متجر الأناقة")
+    .replace(/\{\{current_date\}\}/g, new Date().toLocaleDateString("ar-EG"))
+    .replace(/\{\{post\.permalink\}\}/g, "https://facebook.com/posts/1029384756");
+}
+
 export default function WorkflowsPage() {
   const [view, setView] = useState<"list" | "builder">("list");
   const [workflows, setWorkflows] = useState<WorkflowListItem[]>([]);
@@ -87,6 +142,17 @@ export default function WorkflowsPage() {
   const [simLoading, setSimLoading] = useState(false);
   const [simTrace, setSimTrace] = useState<Array<{ nodeId: string; nodeType: string; status: string; message: string }> | null>(null);
 
+  // Content Posts & Post Picker State
+  const [contentPosts, setContentPosts] = useState<ContentPostItem[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [isPostPickerOpen, setIsPostPickerOpen] = useState(false);
+  const [postSearch, setPostSearch] = useState("");
+  const [postPlatformFilter, setPostPlatformFilter] = useState<"all" | "facebook" | "instagram">("all");
+
+  // Keyword input state in Condition Inspector
+  const [newKeywordInput, setNewKeywordInput] = useState("");
+  const [newKeywordKind, setNewKeywordKind] = useState<MatchKind>("text_contains");
+
   // New Workflow Modal
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -112,6 +178,14 @@ export default function WorkflowsPage() {
       .catch(() => {});
   }, []);
 
+  const loadContentPosts = useCallback(() => {
+    setPostsLoading(true);
+    getJson<{ items: ContentPostItem[] }>("/api/v1/content/posts?limit=50")
+      .then((data) => setContentPosts(data.items || []))
+      .catch(() => {})
+      .finally(() => setPostsLoading(false));
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     getJson<WorkflowListItem[]>("/api/v1/workflows")
@@ -131,6 +205,12 @@ export default function WorkflowsPage() {
       })
       .catch(() => {});
 
+    getJson<{ items: ContentPostItem[] }>("/api/v1/content/posts?limit=50")
+      .then((data) => {
+        if (!cancelled) setContentPosts(data.items || []);
+      })
+      .catch(() => {});
+
     return () => {
       cancelled = true;
     };
@@ -138,6 +218,7 @@ export default function WorkflowsPage() {
 
   const openBuilder = (id: string) => {
     loadTemplates();
+    loadContentPosts();
     setLoading(true);
     setError(null);
     setStatusMessage(null);
@@ -379,14 +460,22 @@ export default function WorkflowsPage() {
     let initialData: Record<string, unknown> = {};
 
     switch (type) {
+      case "trigger.comment":
+        initialData = {
+          platform: "all",
+          assetIds: [],
+          postScope: { mode: "all", postExternalIds: [] },
+          includeReplies: false,
+        };
+        break;
       case "condition.text":
-        initialData = { op: "OR", rules: [{ kind: "text_contains", value: "استفسار", caseSensitive: false }] };
+        initialData = { op: "OR", rules: [{ kind: "text_contains", value: "سعر", caseSensitive: false }] };
         break;
       case "action.public_reply":
-        initialData = { message: "أهلاً بك، تم استلام تعليقك وسنقوم بالرد قريباً." };
+        initialData = { message: "أهلاً بك {{commenter_name}}، تم استلام تعليقك وسنقوم بمساعدتك فوراً!" };
         break;
       case "action.private_reply":
-        initialData = { message: "مرحباً بك! تواصلنا معك بخصوص تعليقك على المنشور." };
+        initialData = { message: "مرحباً {{commenter_name}}! تواصلنا معك في الخاص بخصوص استفسارك عن المنشور." };
         break;
       case "action.use_template":
         initialData = { templateId: templates[0]?.id ?? "", templateName: templates[0]?.name ?? "قالب" };
@@ -675,9 +764,9 @@ export default function WorkflowsPage() {
           )}
 
           {/* Main Visual Workspace: Canvas + Inspector Sidebar */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-[600px] h-[calc(100vh-250px)]">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[600px] h-[calc(100vh-250px)]">
             {/* Canvas */}
-            <div className="lg:col-span-3 rounded-2xl border border-border bg-slate-50 relative overflow-hidden shadow-inner">
+            <div className="lg:col-span-7 xl:col-span-8 rounded-2xl border border-border bg-slate-50 relative overflow-hidden shadow-inner">
               {/* Palette floating buttons */}
               <div className="absolute top-3 right-3 z-10 flex flex-wrap gap-1.5 bg-white/90 p-1.5 rounded-xl border border-border shadow-sm backdrop-blur-xs">
                 <span className="text-[11px] font-semibold text-slate-500 self-center px-1">إضافة عقدة:</span>
@@ -734,7 +823,7 @@ export default function WorkflowsPage() {
             </div>
 
             {/* Inspector Sidebar */}
-            <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-col justify-between overflow-y-auto">
+            <div className="lg:col-span-5 xl:col-span-4 rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-col justify-between overflow-y-auto">
               {selectedNode ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between border-b border-border pb-3">
@@ -743,74 +832,411 @@ export default function WorkflowsPage() {
                   </div>
 
                   {selectedNode.type === "trigger.comment" && (
-                    <div className="space-y-3">
+                    <div className="space-y-4 text-xs">
+                      {/* Platform */}
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-700">المنصة المستهدفة</label>
+                        <label className="mb-1.5 block font-bold text-slate-700">المنصة المستهدفة</label>
                         <select
                           value={(selectedNode.data.platform as string) ?? "all"}
                           onChange={(e) => updateSelectedNodeData("platform", e.target.value)}
-                          className="w-full rounded-xl border border-border bg-white p-2 text-xs outline-none focus:border-brand"
+                          className="w-full rounded-xl border border-border bg-white p-2.5 text-xs outline-none focus:border-brand font-medium"
                         >
-                          <option value="all">كل المنصات (فيسبوك وإنستغرام)</option>
-                          <option value="facebook">فيسبوك فقط</option>
-                          <option value="instagram">إنستغرام فقط</option>
+                          <option value="all">🌐 كل المنصات (فيسبوك وإنستغرام)</option>
+                          <option value="facebook">📘 فيسبوك فقط</option>
+                          <option value="instagram">📸 إنستغرام فقط</option>
                         </select>
+                      </div>
+
+                      {/* Post Scope Selection (Manychat style 3 Cards) */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="font-bold text-slate-700">نطاق المنشورات المستهدفة</label>
+                          <span className="text-[10px] text-slate-400">تحديد نطاق العمل</span>
+                        </div>
+
+                        <div className="space-y-2">
+                          {/* Card 1: All Posts */}
+                          <label
+                            className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition ${
+                              ((selectedNode.data.postScope as { mode?: string })?.mode ?? "all") === "all"
+                                ? "border-brand bg-blue-50/60 ring-1 ring-brand/30"
+                                : "border-slate-200 bg-white hover:border-slate-300"
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="postScopeMode"
+                              checked={((selectedNode.data.postScope as { mode?: string })?.mode ?? "all") === "all"}
+                              onChange={() =>
+                                updateSelectedNodeData("postScope", {
+                                  mode: "all",
+                                  postExternalIds: [],
+                                })
+                              }
+                              className="mt-0.5 text-brand"
+                            />
+                            <div>
+                              <span className="font-bold text-slate-800 block text-xs">🌐 كل المنشورات (الكل)</span>
+                              <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                                الرد على أي تعليق جديد يرد على كافة المنشورات والريلز الحالية والمستقبلية.
+                              </p>
+                            </div>
+                          </label>
+
+                          {/* Card 2: Specific Posts */}
+                          <div
+                            className={`flex flex-col gap-2 p-3 rounded-xl border transition ${
+                              (selectedNode.data.postScope as { mode?: string })?.mode === "posts"
+                                ? "border-brand bg-blue-50/60 ring-1 ring-brand/30"
+                                : "border-slate-200 bg-white hover:border-slate-300"
+                            }`}
+                          >
+                            <label className="flex items-start gap-2.5 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="postScopeMode"
+                                checked={(selectedNode.data.postScope as { mode?: string })?.mode === "posts"}
+                                onChange={() => {
+                                  const currentIds =
+                                    ((selectedNode.data.postScope as { postExternalIds?: string[] })?.postExternalIds) ?? [];
+                                  updateSelectedNodeData("postScope", {
+                                    mode: "posts",
+                                    postExternalIds: currentIds,
+                                  });
+                                  if (contentPosts.length === 0) loadContentPosts();
+                                }}
+                                className="mt-0.5 text-brand"
+                              />
+                              <div className="flex-1">
+                                <span className="font-bold text-slate-800 block text-xs">📌 منشورات محددة من الصفحة</span>
+                                <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                                  تفعيل الرد التلقائي حصراً على منشورات أو إعلانات معينة تختارها من الصفحة.
+                                </p>
+                              </div>
+                            </label>
+
+                            {(selectedNode.data.postScope as { mode?: string })?.mode === "posts" && (
+                              <div className="mt-2 pt-2 border-t border-blue-100/80 space-y-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    loadContentPosts();
+                                    setIsPostPickerOpen(true);
+                                  }}
+                                  className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-xs font-bold text-white shadow-xs hover:bg-brand/90 transition"
+                                >
+                                  <span>➕ اختيار المنشورات من الصفحة</span>
+                                  {(((selectedNode.data.postScope as { postExternalIds?: string[] })?.postExternalIds?.length ?? 0) > 0) && (
+                                    <span className="rounded-full bg-white/20 px-2 py-0.2 text-[10px]">
+                                      {((selectedNode.data.postScope as { postExternalIds?: string[] })?.postExternalIds?.length)} محدد
+                                    </span>
+                                  )}
+                                </button>
+
+                                {/* Selected posts list */}
+                                {(((selectedNode.data.postScope as { postExternalIds?: string[] })?.postExternalIds?.length ?? 0) === 0) ? (
+                                  <p className="text-[11px] text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200">
+                                    ⚠️ لم يتم اختيار أي منشور بعد. اضغط على الزر أعلاه لاختيار منشور واحد على الأقل.
+                                  </p>
+                                ) : (
+                                  <div className="space-y-1.5 max-h-36 overflow-y-auto pe-1">
+                                    {((selectedNode.data.postScope as { postExternalIds?: string[] })?.postExternalIds ?? []).map(
+                                      (extId) => {
+                                        const postItem = contentPosts.find((p) => p.externalId === extId);
+                                        return (
+                                          <div
+                                            key={extId}
+                                            className="flex items-center justify-between rounded-lg bg-white p-2 border border-slate-200 text-[11px] shadow-2xs"
+                                          >
+                                            <div className="flex items-center gap-1.5 overflow-hidden">
+                                              <span>{postItem?.platform === "instagram" ? "📸" : "📘"}</span>
+                                              <span className="truncate max-w-[170px] text-slate-700 font-medium">
+                                                {postItem?.messagePreview || `منشور (${extId.slice(0, 10)}...)`}
+                                              </span>
+                                            </div>
+                                            <button
+                                              type="button"
+                                              title="إلغاء تحديد هذا المنشور"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                const currentIds =
+                                                  ((selectedNode.data.postScope as { postExternalIds?: string[] })
+                                                    ?.postExternalIds) ?? [];
+                                                updateSelectedNodeData("postScope", {
+                                                  mode: "posts",
+                                                  postExternalIds: currentIds.filter((id) => id !== extId),
+                                                });
+                                              }}
+                                              className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded"
+                                            >
+                                              ✕
+                                            </button>
+                                          </div>
+                                        );
+                                      },
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Card 3: Reels Only */}
+                          <label
+                            className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition ${
+                              (selectedNode.data.postScope as { mode?: string })?.mode === "reels"
+                                ? "border-brand bg-blue-50/60 ring-1 ring-brand/30"
+                                : "border-slate-200 bg-white hover:border-slate-300"
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="postScopeMode"
+                              checked={(selectedNode.data.postScope as { mode?: string })?.mode === "reels"}
+                              onChange={() =>
+                                updateSelectedNodeData("postScope", {
+                                  mode: "reels",
+                                  postExternalIds: [],
+                                })
+                              }
+                              className="mt-0.5 text-brand"
+                            />
+                            <div>
+                              <span className="font-bold text-slate-800 block text-xs">🎬 مقاطع الريلز فقط (Reels)</span>
+                              <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                                تشغيل الردود التلقائية على مقاطع الفيديو القصيرة والريلز فقط.
+                              </p>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Sub-replies toggle */}
+                      <div className="pt-2 border-t border-border">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={!selectedNode.data.includeReplies}
+                            onChange={(e) => updateSelectedNodeData("includeReplies", !e.target.checked)}
+                            className="rounded border-slate-300 text-brand focus:ring-brand h-4 w-4"
+                          />
+                          <div>
+                            <span className="font-bold text-slate-800 block text-xs">الرد على التعليقات الرئيسية فقط</span>
+                            <span className="text-[11px] text-slate-500">تجاهل الردود الفرعية على تعليقات العملاء الآخرين</span>
+                          </div>
+                        </label>
                       </div>
                     </div>
                   )}
 
                   {selectedNode.type === "condition.text" && (
-                    <div className="space-y-3">
+                    <div className="space-y-4 text-xs">
+                      {/* Logic Operator Pills */}
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-700">نوع المطابقة الشرطية</label>
-                        <select
-                          value={(selectedNode.data.op as string) ?? "OR"}
-                          onChange={(e) => updateSelectedNodeData("op", e.target.value)}
-                          className="w-full rounded-xl border border-border bg-white p-2 text-xs outline-none focus:border-brand"
-                        >
-                          <option value="OR">تحقق أي كلمة (أو - OR)</option>
-                          <option value="AND">تحقق كل الكلمات (معاً - AND)</option>
-                        </select>
+                        <label className="mb-1.5 block font-bold text-slate-700">طريقة فحص الشروط</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => updateSelectedNodeData("op", "OR")}
+                            className={`rounded-xl py-2 px-3 text-xs font-bold transition border ${
+                              ((selectedNode.data.op as string) ?? "OR") === "OR"
+                                ? "bg-purple-600 text-white border-purple-600 shadow-xs"
+                                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                            }`}
+                          >
+                            تحقق أي كلمة (أو - OR)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateSelectedNodeData("op", "AND")}
+                            className={`rounded-xl py-2 px-3 text-xs font-bold transition border ${
+                              selectedNode.data.op === "AND"
+                                ? "bg-purple-600 text-white border-purple-600 shadow-xs"
+                                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                            }`}
+                          >
+                            تحقق كل الكلمات (معاً - AND)
+                          </button>
+                        </div>
+                        <p className="mt-1 text-[11px] text-slate-400">
+                          {((selectedNode.data.op as string) ?? "OR") === "OR"
+                            ? "ينتقل المسار للفرع الأخضر (نعم) إذا احتوى التعليق على أي من الكلمات أدناه."
+                            : "ينتقل المسار للفرع الأخضر (نعم) فقط إذا احتوى التعليق على جميع الكلمات معاً."}
+                        </p>
                       </div>
 
+                      {/* Keywords Tags List */}
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-700">الكلمة المفتاحية للبحث</label>
-                        <input
-                          type="text"
-                          value={
-                            ((selectedNode.data.rules as Array<{ value: string }>)?.[0]?.value as string) ?? ""
-                          }
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            updateSelectedNodeData("rules", [
-                              { kind: "text_contains", value: val, caseSensitive: false },
-                            ]);
-                          }}
-                          placeholder="مثال: سعر، تفاصيل، أريد الشراء"
-                          className="w-full rounded-xl border border-border bg-white p-2 text-xs outline-none focus:border-brand"
-                        />
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="font-bold text-slate-700">الكلمات المفتاحية النشطة</label>
+                          <span className="text-[10px] font-bold text-purple-700">
+                            {((selectedNode.data.rules as Array<{ value: string }>)?.length ?? 0)} كلمة
+                          </span>
+                        </div>
+
+                        <div className="min-h-16 rounded-xl border border-slate-200 bg-slate-50/70 p-2 flex flex-wrap gap-1.5 items-start">
+                          {(((selectedNode.data.rules as Array<{ value: string }>)?.length ?? 0) === 0) ? (
+                            <p className="text-[11px] text-slate-400 italic p-1">لا توجد كلمات مفتاحية. أضف كلمات بالأسفل.</p>
+                          ) : (
+                            ((selectedNode.data.rules as Array<{ kind: string; value: string }>) ?? []).map((rule, idx) => (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center gap-1 rounded-lg bg-white border border-purple-200 px-2 py-1 text-xs font-bold text-purple-900 shadow-2xs"
+                              >
+                                <span>{rule.value}</span>
+                                <span className="text-[10px] text-slate-400 font-normal">
+                                  {rule.kind === "text_exact" ? "تطابق تام" : rule.kind === "text_excludes" ? "استبعاد" : "تحتوي"}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const currentRules = (selectedNode.data.rules as Array<{ kind: string; value: string }>) || [];
+                                    const updated = currentRules.filter((_, i) => i !== idx);
+                                    updateSelectedNodeData("rules", updated);
+                                  }}
+                                  className="ms-1 text-slate-400 hover:text-red-600 font-bold"
+                                >
+                                  ✕
+                                </button>
+                              </span>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Add Keyword Input Bar */}
+                      <div className="space-y-2 rounded-xl bg-purple-50/50 p-3 border border-purple-100">
+                        <span className="block font-bold text-slate-700 text-xs">إضافة كلمة مفتاحية جديدة:</span>
+                        <div className="flex gap-1.5">
+                          <input
+                            type="text"
+                            value={newKeywordInput}
+                            onChange={(e) => setNewKeywordInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && newKeywordInput.trim()) {
+                                e.preventDefault();
+                                const currentRules =
+                                  (selectedNode.data.rules as Array<{ kind: MatchKind; value: string; caseSensitive: boolean }>) || [];
+                                const val = newKeywordInput.trim();
+                                if (!currentRules.some((r) => r.value.toLowerCase() === val.toLowerCase())) {
+                                  updateSelectedNodeData("rules", [
+                                    ...currentRules,
+                                    { kind: newKeywordKind, value: val, caseSensitive: false },
+                                  ]);
+                                }
+                                setNewKeywordInput("");
+                              }
+                            }}
+                            placeholder="اكتب الكلمة واضغط Enter..."
+                            className="flex-1 rounded-xl border border-border bg-white px-3 py-2 text-xs outline-none focus:border-brand"
+                          />
+                          <select
+                            value={newKeywordKind}
+                            onChange={(e) => setNewKeywordKind(e.target.value as MatchKind)}
+                            className="rounded-xl border border-border bg-white px-2 py-2 text-xs outline-none focus:border-brand"
+                          >
+                            <option value="text_contains">تحتوي على</option>
+                            <option value="text_exact">تطابق تام</option>
+                            <option value="text_excludes">لا تحتوي على</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!newKeywordInput.trim()) return;
+                              const currentRules =
+                                (selectedNode.data.rules as Array<{ kind: MatchKind; value: string; caseSensitive: boolean }>) || [];
+                              const val = newKeywordInput.trim();
+                              if (!currentRules.some((r) => r.value.toLowerCase() === val.toLowerCase())) {
+                                updateSelectedNodeData("rules", [
+                                  ...currentRules,
+                                  { kind: newKeywordKind, value: val, caseSensitive: false },
+                                ]);
+                              }
+                              setNewKeywordInput("");
+                            }}
+                            className="rounded-xl bg-purple-600 px-3 py-2 font-bold text-white hover:bg-purple-700 transition"
+                          >
+                            + إضافة
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 1-Click Keyword Presets */}
+                      <div>
+                        <span className="mb-1.5 block font-bold text-slate-700 text-xs">نماذج كلمات جاهزة بضغطة زر:</span>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {KEYWORD_PRESETS.map((preset) => (
+                            <button
+                              key={preset.category}
+                              type="button"
+                              onClick={() => {
+                                const currentRules =
+                                  (selectedNode.data.rules as Array<{ kind: MatchKind; value: string; caseSensitive: boolean }>) || [];
+                                const newRules = [...currentRules];
+                                for (const word of preset.words) {
+                                  if (!newRules.some((r) => r.value.toLowerCase() === word.toLowerCase())) {
+                                    newRules.push({ kind: "text_contains", value: word, caseSensitive: false });
+                                  }
+                                }
+                                updateSelectedNodeData("rules", newRules);
+                              }}
+                              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white p-2 text-start text-[11px] font-semibold text-slate-700 hover:border-purple-300 hover:bg-purple-50 transition"
+                            >
+                              <span>{preset.icon}</span>
+                              <span>{preset.category}</span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}
 
                   {(selectedNode.type === "action.public_reply" || selectedNode.type === "action.private_reply") && (
-                    <div className="space-y-3">
+                    <div className="space-y-4 text-xs">
+                      {/* Message Input */}
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-700">
-                          {selectedNode.type === "action.public_reply" ? "نص الرد العام" : "نص الرسالة الخاصة"}
-                        </label>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="font-bold text-slate-700">
+                            {selectedNode.type === "action.public_reply" ? "نص الرد العام على التعليق" : "نص الرسالة الخاصة (Direct)"}
+                          </label>
+                          <span className="text-[11px] font-mono text-slate-400">
+                            {((selectedNode.data.message as string) ?? "").length} حرف
+                          </span>
+                        </div>
                         <textarea
                           rows={4}
                           value={(selectedNode.data.message as string) ?? ""}
                           onChange={(e) => updateSelectedNodeData("message", e.target.value)}
                           placeholder="اكتب نص الرد هنا..."
-                          className="w-full rounded-xl border border-border bg-white p-2.5 text-xs outline-none focus:border-brand resize-none"
+                          className="w-full rounded-xl border border-border bg-white p-3 text-xs outline-none focus:border-brand resize-none leading-relaxed"
                         />
                       </div>
 
+                      {/* Arabic Variable Pills (1-Click Insertion) */}
                       <div>
-                        <span className="mb-1 block text-[11px] font-medium text-slate-500">إدراج متغير:</span>
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="font-bold text-slate-700 text-xs">إدراج متغيرات بضغطة زر:</span>
+                          <span className="text-[10px] text-slate-400">انقر للإدراج بنص الرد</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {ARABIC_VARIABLES.map((v) => (
+                            <button
+                              key={v.key}
+                              type="button"
+                              title={v.desc}
+                              onClick={() => {
+                                const current = (selectedNode.data.message as string) ?? "";
+                                updateSelectedNodeData("message", `${current} {{${v.key}}} `);
+                              }}
+                              className="flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition"
+                            >
+                              <span>{v.label}</span>
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="mt-2 pt-1.5 border-t border-slate-100 flex flex-wrap items-center gap-1">
+                          <span className="text-[10px] text-slate-400 font-medium">متغيرات تقنية:</span>
                           {ALLOW_LISTED_VARIABLES.map((v) => (
                             <button
                               key={v}
@@ -819,12 +1245,102 @@ export default function WorkflowsPage() {
                                 const current = (selectedNode.data.message as string) ?? "";
                                 updateSelectedNodeData("message", `${current} {{${v}}} `);
                               }}
-                              className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono text-slate-700 hover:bg-blue-50 hover:text-brand"
+                              className="rounded bg-slate-100 px-1 py-0.5 text-[9px] font-mono text-slate-600 hover:bg-blue-50 hover:text-brand"
                               dir="ltr"
                             >
                               {`{{${v}}}`}
                             </button>
                           ))}
+                        </div>
+                      </div>
+
+                      {/* Image Attachment Section */}
+                      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
+                            <span>🖼️</span>
+                            <span>إرفاق صورة مع الرد (اختياري)</span>
+                          </label>
+                          {(selectedNode.data.imageUrl as string) && (
+                            <button
+                              type="button"
+                              onClick={() => updateSelectedNodeData("imageUrl", undefined)}
+                              className="text-[11px] font-semibold text-red-600 hover:text-red-700"
+                            >
+                              ✕ إزالة الصورة
+                            </button>
+                          )}
+                        </div>
+
+                        <input
+                          type="url"
+                          value={(selectedNode.data.imageUrl as string) ?? ""}
+                          onChange={(e) => updateSelectedNodeData("imageUrl", e.target.value.trim() || undefined)}
+                          placeholder="https://example.com/image.jpg (رابط مباشر للصورة)"
+                          className="w-full rounded-xl border border-border bg-white px-3 py-2 text-xs outline-none focus:border-brand"
+                          dir="ltr"
+                        />
+
+                        {(selectedNode.data.imageUrl as string) && (
+                          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={selectedNode.data.imageUrl as string}
+                              alt="معاينة الصورة المرفقة"
+                              className="h-28 w-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = "none";
+                              }}
+                            />
+                            <div className="bg-slate-50 p-1.5 text-[10px] text-center text-slate-500 font-medium">
+                              ستُرسل هذه الصورة مع الرد عبر Meta Graph API
+                            </div>
+                          </div>
+                        )}
+                        <p className="text-[10px] text-slate-400">
+                          يدعم روابط الصور بصيغة JPG أو PNG أو WebP متوافقة مع شروط منصة Meta.
+                        </p>
+                      </div>
+
+                      {/* Live Interactive Simulation (Manychat style preview) */}
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-700 text-xs">معاينة حية لشكل الرسالة عند العميل:</span>
+                          <span className="rounded-md bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[10px] font-bold">
+                            {selectedNode.type === "action.public_reply" ? "رد تعليق" : "رسالة ماسنجر"}
+                          </span>
+                        </div>
+
+                        <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-2xs space-y-2">
+                          <div className="flex items-center gap-2">
+                            <div className="h-7 w-7 rounded-full bg-brand text-white flex items-center justify-center font-bold text-xs">
+                              أ
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1">
+                                <span className="font-bold text-slate-800 text-xs">صفحة المتجر</span>
+                                <span className="text-blue-500 text-xs">✔</span>
+                              </div>
+                              <span className="text-[10px] text-slate-400">الآن</span>
+                            </div>
+                          </div>
+
+                          {/* Simulated message text with variables replaced */}
+                          <p className="text-xs text-slate-800 leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                            {simulateMessage((selectedNode.data.message as string) ?? "")}
+                          </p>
+
+                          {/* Simulated attached image */}
+                          {(selectedNode.data.imageUrl as string) && (
+                            <div className="overflow-hidden rounded-lg border border-slate-200">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={selectedNode.data.imageUrl as string}
+                                alt="صورة الرد"
+                                className="h-24 w-full object-cover"
+                              />
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -892,6 +1408,190 @@ export default function WorkflowsPage() {
                   <p className="text-xs">اضغط على أي عقدة في اللوحة لعرض وتعديل خصائصها هنا.</p>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Post Picker Modal */}
+      {isPostPickerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in fade-in duration-200 flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <div>
+                <h2 className="text-lg font-bold text-foreground">اختيار المنشورات المستهدفة للأتمتة</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  حدد المنشورات التي ترغب في تشغيل هذا المسار للرد على تعليقاتها فقط.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPostPickerOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold p-1 text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Filter and Search Bar */}
+            <div className="mt-4 flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                value={postSearch}
+                onChange={(e) => setPostSearch(e.target.value)}
+                placeholder="ابحث في نص أو وصف المنشور..."
+                className="flex-1 rounded-xl border border-border bg-white px-3.5 py-2 text-xs outline-none focus:border-brand"
+              />
+              <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setPostPlatformFilter("all")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                    postPlatformFilter === "all" ? "bg-white text-brand shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  الكل
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPostPlatformFilter("facebook")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                    postPlatformFilter === "facebook" ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  📘 فيسبوك
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPostPlatformFilter("instagram")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                    postPlatformFilter === "instagram" ? "bg-white text-purple-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  📸 إنستغرام
+                </button>
+              </div>
+            </div>
+
+            {/* Posts List */}
+            <div className="mt-4 flex-1 overflow-y-auto space-y-2 pe-1 min-h-[250px]">
+              {postsLoading ? (
+                <div className="flex h-48 items-center justify-center text-slate-400 text-xs">
+                  جاري تحميل منشورات صفحتك...
+                </div>
+              ) : contentPosts.length === 0 ? (
+                <div className="flex h-48 flex-col items-center justify-center text-center text-slate-400 text-xs p-6">
+                  <span className="text-2xl mb-2">📭</span>
+                  <p className="font-semibold text-slate-600">لا توجد منشورات متزامنة حالياً</p>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    تأكد من مزامنة منشورات صفحتك من صفحة المحتوى، أو اختر خيار &ldquo;كل المنشورات&rdquo;.
+                  </p>
+                </div>
+              ) : (
+                (() => {
+                  const filteredPosts = contentPosts.filter((p) => {
+                    if (postPlatformFilter !== "all" && p.platform !== postPlatformFilter) return false;
+                    if (postSearch.trim()) {
+                      const q = postSearch.trim().toLowerCase();
+                      const text = (p.messagePreview || "").toLowerCase();
+                      const ext = (p.externalId || "").toLowerCase();
+                      if (!text.includes(q) && !ext.includes(q)) return false;
+                    }
+                    return true;
+                  });
+
+                  if (filteredPosts.length === 0) {
+                    return (
+                      <div className="text-center p-8 text-xs text-slate-400">
+                        لا توجد منشورات تطابق شروط البحث الحالية.
+                      </div>
+                    );
+                  }
+
+                  const currentSelectedIds =
+                    ((selectedNode?.data.postScope as { postExternalIds?: string[] })?.postExternalIds) ?? [];
+
+                  return filteredPosts.map((post) => {
+                    const isSelected = currentSelectedIds.includes(post.externalId);
+                    return (
+                      <div
+                        key={post.id}
+                        onClick={() => {
+                          const newIds = isSelected
+                            ? currentSelectedIds.filter((id) => id !== post.externalId)
+                            : [...currentSelectedIds, post.externalId];
+                          updateSelectedNodeData("postScope", {
+                            mode: "posts",
+                            postExternalIds: newIds,
+                          });
+                        }}
+                        className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                          isSelected
+                            ? "border-brand bg-blue-50/70 ring-1 ring-brand/30"
+                            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}}
+                          className="mt-1 h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold text-xs text-slate-700">
+                              {post.platform === "facebook" ? "📘 فيسبوك" : "📸 إنستغرام"}
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              {new Date(post.createdTime).toLocaleDateString("ar-EG")}
+                            </span>
+                            {post.commentsCount > 0 && (
+                              <span className="rounded-full bg-slate-100 px-2 py-0.2 text-[10px] text-slate-600 font-semibold">
+                                💬 {post.commentsCount} تعليق
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-800 line-clamp-2 leading-relaxed">
+                            {post.messagePreview || "(منشور بدون نص أو وسائط فقط)"}
+                          </p>
+                          <div className="mt-1 flex items-center gap-2">
+                            <span className="text-[10px] font-mono text-slate-400">ID: {post.externalId}</span>
+                            {post.permalink && (
+                              <a
+                                href={post.permalink}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-[10px] text-brand hover:underline"
+                              >
+                                🔗 عرض المنشور
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+              <span className="text-xs font-semibold text-slate-600">
+                تم تحديد:{" "}
+                <strong className="text-brand">
+                  {((selectedNode?.data.postScope as { postExternalIds?: string[] })?.postExternalIds?.length ?? 0)}
+                </strong>{" "}
+                منشور
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsPostPickerOpen(false)}
+                className="rounded-xl bg-brand px-5 py-2 text-xs font-semibold text-white hover:bg-brand/90 transition shadow-xs"
+              >
+                تأكيد المنشورات المحددة
+              </button>
             </div>
           </div>
         </div>

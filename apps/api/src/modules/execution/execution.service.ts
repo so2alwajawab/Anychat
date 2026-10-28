@@ -215,12 +215,14 @@ export class ExecutionService {
           break;
         }
 
+        const replyNodeData = (nextNode.data ?? {}) as { message?: string; imageUrl?: string };
         const outboundResult = await this.outbound.executePublicReply({
           runId,
           assetId: comment.assetId,
           platform: comment.platform as 'facebook' | 'instagram',
           targetCommentId: comment.externalCommentId,
           renderedMessage: rendered,
+          imageUrl: replyNodeData.imageUrl,
         });
 
         await this.prisma.nodeExecution.create({
@@ -249,7 +251,7 @@ export class ExecutionService {
         }
       } else if (nextNode.type === 'action.private_reply') {
         let rawMessage = '';
-        const nodeData = (nextNode.data ?? {}) as { message?: string; templateId?: string };
+        const nodeData = (nextNode.data ?? {}) as { message?: string; templateId?: string; imageUrl?: string };
         if (nodeData.templateId) {
           const tmpl = await this.prisma.messageTemplate.findUnique({
             where: { id: nodeData.templateId },
@@ -268,6 +270,7 @@ export class ExecutionService {
           targetCommentId: comment.externalCommentId,
           sourceCreatedAt: comment.sourceCreatedAt,
           renderedMessage: rendered,
+          imageUrl: nodeData.imageUrl,
         });
 
         await this.prisma.nodeExecution.create({

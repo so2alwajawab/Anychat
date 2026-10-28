@@ -75,11 +75,14 @@ export type ConditionAssetPostData = z.infer<typeof ConditionAssetPostDataSchema
 
 export const ActionPublicReplyDataSchema = z.object({
   message: z.string().min(1, 'نص الرد العام مطلوب'),
+  imageUrl: z.string().optional(),
 });
 export type ActionPublicReplyData = z.infer<typeof ActionPublicReplyDataSchema>;
 
 export const ActionPrivateReplyDataSchema = z.object({
-  message: z.string().min(1, 'نص الرد الخاص مطلوب'),
+  message: z.string().optional(),
+  templateId: z.string().optional(),
+  imageUrl: z.string().optional(),
 });
 export type ActionPrivateReplyData = z.infer<typeof ActionPrivateReplyDataSchema>;
 

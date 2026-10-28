@@ -92,6 +92,7 @@ describe('OutboundService (Gate G5 Requirements)', () => {
       'c-1',
       'decrypted-page-token-123',
       'أهلاً بك، تم استلام استفسارك',
+      undefined,
     );
     expect(mockAudit.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'outbound.action.sent' }),
@@ -298,6 +299,7 @@ describe('OutboundService (Gate G5 Requirements)', () => {
       'decrypted-page-token-123',
       'fb-c-1',
       'أهلاً بك، تم إرسال الكتالوج في الخاص',
+      undefined,
     );
   });
 
@@ -334,6 +336,7 @@ describe('OutboundService (Gate G5 Requirements)', () => {
       'decrypted-page-token-123',
       'ig-c-1',
       'تفاصيل المنتج في الخاص',
+      undefined,
     );
   });
 
@@ -360,5 +363,39 @@ describe('OutboundService (Gate G5 Requirements)', () => {
     expect(result.status).toBe('failed');
     expect(result.errorCode).toBe('RATE_LIMIT_EXCEEDED');
     expect(mockGraph.sendPagePrivateReply).not.toHaveBeenCalled();
+  });
+
+  it('forwards image attachment to Graph API when imageUrl is provided', async () => {
+    mockPrisma.metaConnectedAsset.findUnique.mockResolvedValue({
+      id: 'asset-img-1',
+      externalId: 'page-ext-100',
+      platform: 'facebook',
+      encryptedAccessToken: 'enc-token-123',
+    });
+    mockPrisma.outboundAction.findUnique.mockResolvedValue(null);
+    mockPrisma.outboundAction.create.mockResolvedValue({
+      id: 'act-img',
+      status: 'pending',
+      idempotencyKey: 'public_reply:c-img-1',
+    });
+    mockPrisma.outboundAction.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.outboundAction.update.mockResolvedValue({ id: 'act-img', status: 'sent' });
+
+    const result = await service.executePublicReply({
+      runId: 'run-img',
+      assetId: 'asset-img-1',
+      platform: 'facebook',
+      targetCommentId: 'c-img-1',
+      renderedMessage: 'هذه صورة العرض',
+      imageUrl: 'https://example.com/promo.jpg',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mockGraph.publishPageCommentReply).toHaveBeenCalledWith(
+      'c-img-1',
+      'decrypted-page-token-123',
+      'هذه صورة العرض',
+      'https://example.com/promo.jpg',
+    );
   });
 });
