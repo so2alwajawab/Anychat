@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import { AdminService } from './admin.service.js';
+import type { PrismaService } from '../../common/prisma/prisma.module.js';
 
 const UUID_A = '11111111-1111-4111-8111-111111111111';
 const UUID_B = '22222222-2222-4222-8222-222222222222';
@@ -15,7 +16,7 @@ function mockPrisma(overrides: Record<string, unknown> = {}) {
     workflow: { count: vi.fn() },
     auditLog: { findMany: vi.fn() },
     ...overrides,
-  } as never;
+  };
 }
 
 describe('AdminService (Phase 3)', () => {
@@ -24,7 +25,7 @@ describe('AdminService (Phase 3)', () => {
 
   beforeEach(() => {
     prisma = mockPrisma();
-    service = new AdminService(prisma);
+    service = new AdminService(prisma as unknown as PrismaService);
   });
 
   it('overview aggregates cross-tenant KPIs and computes success rate', async () => {
@@ -64,7 +65,7 @@ describe('AdminService (Phase 3)', () => {
       workflow: { count: vi.fn().mockResolvedValue(3), findMany: vi.fn(), findUnique: vi.fn() },
       auditLog: { findMany: vi.fn() },
     });
-    service = new AdminService(prisma);
+    service = new AdminService(prisma as unknown as PrismaService);
 
     const result = await service.overview();
 
