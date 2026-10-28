@@ -1,15 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4f6fa;
-  --foreground: #16202c;
-  --sidebar: #0f1c33;
-  --sidebar-foreground: #c7d2e4;
-  --sidebar-muted: #7f8ca6;
-  --sidebar-active: #2563eb;
-  --brand: #2563eb;
+  /* Brand palette — see public/brand/color.txt (Main #ff1212 / Second #0d091e) */
+  --background: #f6f6f8;
+  --foreground: #1c1526;
+  --sidebar: #0d091e;
+  --sidebar-foreground: #cdc7db;
+  --sidebar-muted: #8b83a3;
+  --sidebar-active: #ff1212;
+  --brand: #ff1212;
   --card: #ffffff;
-  --border: #e2e8f0;
+  --border: #e6e4ec;
 }
 
 @theme inline {
@@ -22,11 +23,12 @@
   --color-brand: var(--brand);
   --color-card: var(--card);
   --color-border: var(--border);
-  --font-sans: var(--font-plex-arabic);
+  --font-sans: var(--font-thmanyah);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-plex-arabic), system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-thmanyah), var(--font-noto-arabic), system-ui,
+    -apple-system, "Segoe UI", sans-serif;
 }

@@ -139,14 +139,14 @@ export default function OnboardingPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-4 py-10">
-      <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
+      <div className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-8">
         <div className="mb-6 text-center">
           <h1 className="text-xl font-semibold">{UI.onboarding.title}</h1>
           <p className="mt-1 text-sm text-slate-500">{UI.onboarding.subtitle}</p>
         </div>
 
         {/* Progress stepper */}
-        <ol className="mb-8 flex items-center justify-center gap-2">
+        <ol className="mb-8 flex flex-wrap items-center justify-center gap-2">
           {STEP_ORDER.map((s, i) => (
             <li key={s} className="flex items-center gap-2">
               <span

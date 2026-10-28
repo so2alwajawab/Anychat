@@ -564,7 +564,7 @@ export default function WorkflowsPage() {
             </div>
           ) : workflows.length === 0 ? (
             <div className="flex min-h-[320px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card p-8 text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-brand">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-red-50 text-brand">
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
@@ -611,7 +611,7 @@ export default function WorkflowsPage() {
                         الأصل: {wf.asset ? wf.asset.displayName : "كل الصفحات"}
                       </span>
                       {wf.activeVersionNumber !== null && (
-                        <span className="rounded-md bg-blue-50 px-2 py-1 font-mono text-brand border border-blue-100">
+                        <span className="rounded-md bg-red-50 px-2 py-1 font-mono text-brand border border-red-100">
                           الإصدار v{wf.activeVersionNumber}
                         </span>
                       )}
@@ -626,7 +626,7 @@ export default function WorkflowsPage() {
                       <button
                         type="button"
                         onClick={() => openBuilder(wf.id)}
-                        className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-brand hover:bg-blue-100 transition"
+                        className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-brand hover:bg-red-100 transition"
                       >
                         تعديل المخطط المرئي
                       </button>
@@ -695,7 +695,7 @@ export default function WorkflowsPage() {
               <button
                 type="button"
                 onClick={() => setIsSimOpen(true)}
-                className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-brand hover:bg-blue-100 transition"
+                className="rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-brand hover:bg-red-100 transition"
               >
                 اختبار ومحاكاة
               </button>
@@ -764,9 +764,9 @@ export default function WorkflowsPage() {
           )}
 
           {/* Main Visual Workspace: Canvas + Inspector Sidebar */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[600px] h-[calc(100vh-250px)]">
+          <div className="grid grid-cols-1 gap-4 lg:h-[calc(100vh-250px)] lg:min-h-[600px] lg:grid-cols-12">
             {/* Canvas */}
-            <div className="lg:col-span-7 xl:col-span-8 rounded-2xl border border-border bg-slate-50 relative overflow-hidden shadow-inner">
+            <div className="h-[70vh] lg:col-span-7 lg:h-auto xl:col-span-8 rounded-2xl border border-border bg-slate-50 relative overflow-hidden shadow-inner">
               {/* Palette floating buttons */}
               <div className="absolute top-3 right-3 z-10 flex flex-wrap gap-1.5 bg-white/90 p-1.5 rounded-xl border border-border shadow-sm backdrop-blur-xs">
                 <span className="text-[11px] font-semibold text-slate-500 self-center px-1">إضافة عقدة:</span>
@@ -859,7 +859,7 @@ export default function WorkflowsPage() {
                           <label
                             className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition ${
                               ((selectedNode.data.postScope as { mode?: string })?.mode ?? "all") === "all"
-                                ? "border-brand bg-blue-50/60 ring-1 ring-brand/30"
+                                ? "border-brand bg-red-50/60 ring-1 ring-brand/30"
                                 : "border-slate-200 bg-white hover:border-slate-300"
                             }`}
                           >
@@ -887,7 +887,7 @@ export default function WorkflowsPage() {
                           <div
                             className={`flex flex-col gap-2 p-3 rounded-xl border transition ${
                               (selectedNode.data.postScope as { mode?: string })?.mode === "posts"
-                                ? "border-brand bg-blue-50/60 ring-1 ring-brand/30"
+                                ? "border-brand bg-red-50/60 ring-1 ring-brand/30"
                                 : "border-slate-200 bg-white hover:border-slate-300"
                             }`}
                           >
@@ -916,7 +916,7 @@ export default function WorkflowsPage() {
                             </label>
 
                             {(selectedNode.data.postScope as { mode?: string })?.mode === "posts" && (
-                              <div className="mt-2 pt-2 border-t border-blue-100/80 space-y-2">
+                              <div className="mt-2 pt-2 border-t border-red-100/80 space-y-2">
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -985,7 +985,7 @@ export default function WorkflowsPage() {
                           <label
                             className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition ${
                               (selectedNode.data.postScope as { mode?: string })?.mode === "reels"
-                                ? "border-brand bg-blue-50/60 ring-1 ring-brand/30"
+                                ? "border-brand bg-red-50/60 ring-1 ring-brand/30"
                                 : "border-slate-200 bg-white hover:border-slate-300"
                             }`}
                           >
@@ -1228,7 +1228,7 @@ export default function WorkflowsPage() {
                                 const current = (selectedNode.data.message as string) ?? "";
                                 updateSelectedNodeData("message", `${current} {{${v.key}}} `);
                               }}
-                              className="flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition"
+                              className="flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-bold text-red-700 hover:bg-red-100 hover:border-red-300 transition"
                             >
                               <span>{v.label}</span>
                             </button>
@@ -1245,7 +1245,7 @@ export default function WorkflowsPage() {
                                 const current = (selectedNode.data.message as string) ?? "";
                                 updateSelectedNodeData("message", `${current} {{${v}}} `);
                               }}
-                              className="rounded bg-slate-100 px-1 py-0.5 text-[9px] font-mono text-slate-600 hover:bg-blue-50 hover:text-brand"
+                              className="rounded bg-slate-100 px-1 py-0.5 text-[9px] font-mono text-slate-600 hover:bg-red-50 hover:text-brand"
                               dir="ltr"
                             >
                               {`{{${v}}}`}
@@ -1319,7 +1319,7 @@ export default function WorkflowsPage() {
                             <div>
                               <div className="flex items-center gap-1">
                                 <span className="font-bold text-slate-800 text-xs">صفحة المتجر</span>
-                                <span className="text-blue-500 text-xs">✔</span>
+                                <span className="text-brand text-xs">✔</span>
                               </div>
                               <span className="text-[10px] text-slate-400">الآن</span>
                             </div>
@@ -1527,7 +1527,7 @@ export default function WorkflowsPage() {
                         }}
                         className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
                           isSelected
-                            ? "border-brand bg-blue-50/70 ring-1 ring-brand/30"
+                            ? "border-brand bg-red-50/70 ring-1 ring-brand/30"
                             : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50"
                         }`}
                       >

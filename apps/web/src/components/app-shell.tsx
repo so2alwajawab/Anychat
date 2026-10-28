@@ -6,6 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { APP_NAME, NAV_ITEMS, UI, type NavSlug } from "@anychat/shared";
 import { postJson, type SessionUser } from "@/lib/api";
 
+/* eslint-disable @next/next/no-img-element -- static local brand assets, no runtime optimization needed */
+
 const ICONS: Record<NavSlug, ReactNode> = {
   dashboard: <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />,
   connections: (
@@ -74,6 +76,76 @@ function NavIcon({ slug }: { slug: NavSlug }) {
   );
 }
 
+function BrandHeader() {
+  return (
+    <div className="flex items-center gap-2.5 px-5 py-5">
+      <img
+        src="/brand/logo.png"
+        alt=""
+        width={512}
+        height={414}
+        className="h-8 w-auto shrink-0"
+      />
+      <span className="text-base font-semibold text-white">{APP_NAME}</span>
+    </div>
+  );
+}
+
+function SidebarNav({
+  user,
+  pathname,
+  onNavigate,
+  onLogout,
+  loggingOut,
+}: {
+  user: SessionUser;
+  pathname: string;
+  onNavigate?: () => void;
+  onLogout: () => void;
+  loggingOut: boolean;
+}) {
+  return (
+    <>
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
+        {NAV_ITEMS.map((item) => {
+          const active =
+            pathname === item.href || pathname.startsWith(`${item.href}/`);
+          return (
+            <Link
+              key={item.slug}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              onClick={onNavigate}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+                active
+                  ? "bg-sidebar-active text-white"
+                  : "text-sidebar-foreground hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <NavIcon slug={item.slug} />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="border-t border-white/10 px-4 py-4">
+        <div className="truncate text-sm" title={user.username}>
+          {user.username}
+        </div>
+        <button
+          type="button"
+          onClick={onLogout}
+          disabled={loggingOut}
+          className="mt-1 text-xs text-sidebar-muted hover:text-white disabled:opacity-60"
+        >
+          {UI.logout}
+        </button>
+      </div>
+    </>
+  );
+}
+
 export function AppShell({
   user,
   children,
@@ -84,6 +156,7 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   async function logout() {
     setLoggingOut(true);
@@ -97,56 +170,71 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen">
-      <aside className="flex w-60 shrink-0 flex-col bg-sidebar text-sidebar-foreground">
-        <div className="flex items-center gap-2.5 px-5 py-5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-sm font-semibold text-white">
-            {APP_NAME.charAt(0)}
-          </span>
-          <span className="text-base font-semibold">{APP_NAME}</span>
-        </div>
-
-        <nav className="flex-1 space-y-1 px-3 py-2">
-          {NAV_ITEMS.map((item) => {
-            const active =
-              pathname === item.href || pathname.startsWith(`${item.href}/`);
-            return (
-              <Link
-                key={item.slug}
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                  active
-                    ? "bg-sidebar-active text-white"
-                    : "text-sidebar-foreground hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <NavIcon slug={item.slug} />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="border-t border-white/10 px-4 py-4">
-          <div className="truncate text-sm" title={user.username}>
-            {user.username}
-          </div>
-          <button
-            type="button"
-            onClick={logout}
-            disabled={loggingOut}
-            className="mt-1 text-xs text-sidebar-muted hover:text-white disabled:opacity-60"
-          >
-            {UI.logout}
-          </button>
-        </div>
+      {/* Desktop sidebar */}
+      <aside className="hidden w-60 shrink-0 flex-col bg-sidebar text-sidebar-foreground lg:flex">
+        <BrandHeader />
+        <SidebarNav
+          user={user}
+          pathname={pathname}
+          onLogout={logout}
+          loggingOut={loggingOut}
+        />
       </aside>
 
+      {/* Mobile drawer */}
+      {menuOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <button
+            type="button"
+            aria-label="إغلاق القائمة"
+            onClick={() => setMenuOpen(false)}
+            className="absolute inset-0 bg-black/50"
+          />
+          <aside className="absolute inset-y-0 right-0 flex w-64 max-w-[85vw] flex-col bg-sidebar text-sidebar-foreground shadow-xl">
+            <BrandHeader />
+            <SidebarNav
+              user={user}
+              pathname={pathname}
+              onNavigate={() => setMenuOpen(false)}
+              onLogout={logout}
+              loggingOut={loggingOut}
+            />
+          </aside>
+        </div>
+      )}
+
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center border-b border-border bg-card px-6 text-sm text-slate-500">
-          {APP_NAME}
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-card px-4 text-sm text-slate-500 sm:px-6">
+          <button
+            type="button"
+            aria-label="فتح القائمة"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen(true)}
+            className="-m-1.5 rounded-lg p-1.5 text-slate-600 transition-colors hover:bg-slate-100 lg:hidden"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              className="h-5 w-5 fill-none stroke-current"
+              strokeWidth={1.8}
+              strokeLinecap="round"
+            >
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <img
+            src="/brand/logo.png"
+            alt=""
+            width={512}
+            height={414}
+            className="h-7 w-auto shrink-0 lg:hidden"
+          />
+          <span className="font-medium text-slate-700 lg:hidden">
+            {APP_NAME}
+          </span>
+          <span className="hidden lg:inline">{APP_NAME}</span>
         </header>
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>
     </div>
   );

@@ -43,11 +43,16 @@ export default function SignupPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-sm">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-8">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-brand text-lg font-semibold text-white">
-            {APP_NAME.charAt(0)}
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element -- static local brand asset */}
+          <img
+            src="/brand/logo.png"
+            alt={APP_NAME}
+            width={512}
+            height={414}
+            className="mx-auto mb-3 h-16 w-auto"
+          />
           <h1 className="text-xl font-semibold">{UI.signup.title}</h1>
           <p className="mt-1 text-sm text-slate-500">{UI.signup.subtitle}</p>
         </div>

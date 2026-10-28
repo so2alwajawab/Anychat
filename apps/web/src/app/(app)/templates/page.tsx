@@ -163,7 +163,7 @@ export default function TemplatesPage() {
         </div>
       ) : templates.length === 0 ? (
         <div className="flex min-h-[300px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card p-8 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-brand">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-red-50 text-brand">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
             </svg>
@@ -202,7 +202,7 @@ export default function TemplatesPage() {
                     {tpl.allowedVariables.map((v) => (
                       <span
                         key={v}
-                        className="rounded-md bg-blue-50 px-2 py-0.5 text-xs font-mono text-brand border border-blue-100"
+                        className="rounded-md bg-red-50 px-2 py-0.5 text-xs font-mono text-brand border border-red-100"
                         dir="ltr"
                       >
                         {`{{${v}}}`}
@@ -220,7 +220,7 @@ export default function TemplatesPage() {
                   <button
                     type="button"
                     onClick={() => openEditModal(tpl)}
-                    className="rounded-lg px-2.5 py-1 text-xs font-medium text-brand hover:bg-blue-50 transition"
+                    className="rounded-lg px-2.5 py-1 text-xs font-medium text-brand hover:bg-red-50 transition"
                   >
                     تعديل
                   </button>
@@ -308,7 +308,7 @@ export default function TemplatesPage() {
                       key={varName}
                       type="button"
                       onClick={() => insertVariable(varName)}
-                      className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-mono text-slate-700 hover:border-brand hover:bg-blue-50 hover:text-brand transition"
+                      className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-mono text-slate-700 hover:border-brand hover:bg-red-50 hover:text-brand transition"
                       dir="ltr"
                     >
                       {`+ {{${varName}}}`}

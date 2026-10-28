@@ -28,7 +28,7 @@ function formatMessagePreview(text?: string) {
           return (
             <span
               key={i}
-              className="mx-0.5 inline-block rounded bg-blue-100 px-1 py-0.2 text-[10px] font-semibold text-blue-700"
+              className="mx-0.5 inline-block rounded bg-red-100 px-1 py-0.2 text-[10px] font-semibold text-red-700"
             >
               {label}
             </span>
@@ -54,17 +54,17 @@ export function TriggerCommentNode({ data, selected }: NodeProps) {
   return (
     <div
       className={`min-w-[260px] rounded-2xl border-2 bg-white p-4 shadow-md transition ${
-        selected ? "border-brand shadow-lg ring-2 ring-brand/20" : "border-blue-400 hover:border-blue-500"
+        selected ? "border-brand shadow-lg ring-2 ring-brand/20" : "border-red-400 hover:border-red-500"
       }`}
     >
       <div className="flex items-center gap-2.5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-brand">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-brand">
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
         </div>
         <div>
-          <span className="block text-[11px] font-bold uppercase tracking-wider text-blue-600">مشغل البداية (Trigger)</span>
+          <span className="block text-[11px] font-bold uppercase tracking-wider text-red-600">مشغل البداية (Trigger)</span>
           <h4 className="text-sm font-bold text-slate-800">وصول تعليق جديد</h4>
         </div>
       </div>

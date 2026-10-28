@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Gate G1.9 — all routes render as Arabic RTL with the IBM Plex Sans Arabic
+// Gate G1.9 — all routes render as Arabic RTL with the Thmanyah Sans
 // font variable, and no English-only user-facing JSX strings exist in source.
 // Run after `next build` (prerendered HTML in .next/server/app).
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -50,8 +50,8 @@ const cssDirs = [chunksDir, cssSubDir].filter((d) => existsSync(d));
 const css = cssDirs
   .flatMap((d) => readdirSync(d).filter((f) => f.endsWith('.css')).map((f) => readFileSync(join(d, f), 'utf8')))
   .join('\n');
-if (!css.includes('--font-plex-arabic')) {
-  failures.push('built CSS does not define --font-plex-arabic (IBM Plex Sans Arabic)');
+if (!css.includes('--font-thmanyah')) {
+  failures.push('built CSS does not define --font-thmanyah (Thmanyah Sans)');
 }
 
 // English-only JSX text nodes are treated as user-facing strings.

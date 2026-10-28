@@ -285,7 +285,7 @@ function ContentContent() {
           {T.comments.empty}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
           <table className="min-w-full divide-y divide-border text-right text-xs">
             <thead className="bg-slate-50 font-medium text-slate-600">
               <tr>

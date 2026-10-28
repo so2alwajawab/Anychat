@@ -1,0 +1,2 @@
+Main Color: #ff1212
+Second Color: #0d091e

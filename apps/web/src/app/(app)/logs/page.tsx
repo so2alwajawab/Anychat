@@ -249,7 +249,7 @@ function LogsContent() {
             {L.runs.empty}
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+          <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
             <table className="min-w-full divide-y divide-border text-right text-xs">
               <thead className="bg-slate-50 font-medium text-slate-600">
                 <tr>
@@ -330,7 +330,7 @@ function LogsContent() {
             {L.webhooks.empty}
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+          <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
             <table className="min-w-full divide-y divide-border text-right text-xs">
               <thead className="bg-slate-50 font-medium text-slate-600">
                 <tr>
@@ -385,7 +385,7 @@ function LogsContent() {
           {L.audit.empty}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
           <table className="min-w-full divide-y divide-border text-right text-xs">
             <thead className="bg-slate-50 font-medium text-slate-600">
               <tr>
@@ -479,7 +479,7 @@ function LogsContent() {
                           type="button"
                           onClick={() => handleRetryRun(runDetail.id)}
                           disabled={retrying}
-                          className="w-full rounded-lg bg-brand py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition"
+                          className="w-full rounded-lg bg-brand py-2 text-xs font-semibold text-white hover:bg-red-600 disabled:opacity-50 transition"
                         >
                           {retrying ? "جارٍ إعادة المحاولة…" : "إعادة محاولة تنفيذ العملية"}
                         </button>
