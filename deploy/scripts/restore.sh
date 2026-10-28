@@ -31,13 +31,24 @@ cd "${PROJECT_DIR}"
 docker compose -f deploy/compose.yml stop api || true
 
 echo "Restoring database from ${DUMP_FILE}..."
+# pg_restore must be allowed to report its own exit code: `|| true` here would
+# make a failed restore look like a successful one.
+set +e
 docker compose -f deploy/compose.yml exec -T postgres pg_restore \
   -U anychat \
   -d anychat \
   --clean \
   --if-exists \
   --no-owner \
-  --no-privileges < "${DUMP_FILE}" || true
+  --no-privileges < "${DUMP_FILE}"
+RESTORE_EXIT=$?
+set -e
+
+if [ "${RESTORE_EXIT}" -ne 0 ]; then
+  echo "ERROR: pg_restore exited with code ${RESTORE_EXIT} — the restore is INCOMPLETE."
+  echo "Do not restart traffic. Check the dump file and runbooks/backup-restore.md."
+  exit "${RESTORE_EXIT}"
+fi
 
 echo "Restarting API and verifying health..."
 docker compose -f deploy/compose.yml start api

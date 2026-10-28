@@ -117,11 +117,25 @@ const SESSION_STATUS_ALLOWANCE: Record<string, number[]> = {
 function allowedStatuses(route: RouteInfo): number[] {
   const key = routeKey(route);
   if (SESSION_STATUS_ALLOWANCE[key]) return SESSION_STATUS_ALLOWANCE[key];
-  if (route.path.includes(':')) return [200, 404];
-  return [200];
+  const allowed = [200];
+  // Missing entities legitimately answer 404 (path params are substituted with
+  // a non-existent UUID by send()).
+  if (route.path.includes(':')) allowed.push(404);
+  // The matrix sends empty bodies everywhere; DTO validation rejecting one with
+  // 400 is correct behaviour, not an authorization defect.
+  if (route.httpMethod !== 'GET') allowed.push(400);
+  return allowed;
 }
 
 const routeKey = (r: RouteInfo) => `${r.httpMethod} ${r.path}`;
+
+/**
+ * Path parameters are swapped for a syntactically valid, non-existent UUID so
+ * each handler actually runs (auth passes, lookup misses) and answers 404.
+ * Requesting the literal `:id` instead trips ParseUUIDPipe with a 400, which
+ * would prove nothing about the route beyond validation.
+ */
+const NON_EXISTENT_UUID = '00000000-0000-4000-8000-000000000000';
 
 function send(
   http: Http,
@@ -129,7 +143,8 @@ function send(
   opts: { cookies?: string; csrf?: string },
 ) {
   const method = route.httpMethod.toLowerCase() as 'get' | 'post' | 'patch' | 'put' | 'delete';
-  let req = http[method](route.path);
+  const path = route.path.replace(/:[A-Za-z0-9_]+/g, NON_EXISTENT_UUID);
+  let req = http[method](path);
   if (opts.cookies) req = req.set('Cookie', opts.cookies);
   if (opts.csrf) req = req.set('x-csrf-token', opts.csrf);
   if (route.httpMethod !== 'GET') req = req.send({});

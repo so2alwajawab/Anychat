@@ -36,6 +36,10 @@ describe('OutboundService (Gate G5 Requirements)', () => {
       },
     };
 
+    // Default for BOTH the atomic claim and every post-claim (fenced) write.
+    // Individual tests override this with mockResolvedValueOnce where needed.
+    mockPrisma.outboundAction.updateMany.mockResolvedValue({ count: 1 });
+
     mockAssets = {
       decryptToken: vi.fn().mockResolvedValue('decrypted-page-token-123'),
     };
@@ -196,15 +200,17 @@ describe('OutboundService (Gate G5 Requirements)', () => {
     expect(result.ok).toBe(false);
     expect(result.status).toBe('failed');
     expect(result.errorCode).toBe('80001');
-    expect(mockPrisma.outboundAction.update).toHaveBeenCalledWith(
+    // The failure write must go through the fencing guard, never an unguarded update().
+    expect(mockPrisma.outboundAction.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'act-rl' },
+        where: { id: 'act-rl', status: 'sending', fencingToken: expect.any(String) },
         data: expect.objectContaining({
           status: 'failed',
           lastErrorCode: '80001',
         }),
       }),
     );
+    expect(mockPrisma.outboundAction.update).not.toHaveBeenCalled();
   });
 
   it('7-day window guard: comment older than 7 days skips network call with WINDOW_EXPIRED (Gate G6)', async () => {
@@ -397,5 +403,46 @@ describe('OutboundService (Gate G5 Requirements)', () => {
       'هذه صورة العرض',
       'https://example.com/promo.jpg',
     );
+  });
+
+  it('fencing: a stale worker can never overwrite a reclaimed action (no unguarded writes)', async () => {
+    // Claim is won, then the crash reconciler hands the row to another worker,
+    // so our guarded writes find status/fencingToken no longer matching (count 0).
+    mockPrisma.outboundAction.findUnique.mockResolvedValue(null);
+    mockPrisma.outboundAction.create.mockResolvedValue({
+      id: 'act-fence',
+      status: 'pending',
+      idempotencyKey: 'public_reply:c-fence',
+    });
+    mockPrisma.outboundAction.updateMany
+      .mockResolvedValueOnce({ count: 1 }) // claim won
+      .mockResolvedValue({ count: 0 }); // claim lost on every subsequent write
+
+    const result = await service.executePublicReply({
+      runId: 'run-fence',
+      assetId: 'asset-1',
+      platform: 'facebook',
+      targetCommentId: 'c-fence',
+      renderedMessage: 'رد مُشطَب بـ fencing',
+    });
+
+    // The Graph call already happened, so the result still reports it…
+    expect(result.ok).toBe(true);
+    expect(result.remoteMessageId).toBe('fb-reply-999');
+
+    const calls = mockPrisma.outboundAction.updateMany.mock.calls as [Record<string, any>][];
+    expect(calls.length).toBeGreaterThan(1);
+
+    // …but every write after the claim is fenced on status + our own token…
+    for (const [args] of calls.slice(1)) {
+      expect(args.where).toEqual({
+        id: 'act-fence',
+        status: 'sending',
+        fencingToken: expect.any(String),
+      });
+    }
+
+    // …and the legacy unguarded update() path must stay dead.
+    expect(mockPrisma.outboundAction.update).not.toHaveBeenCalled();
   });
 });

@@ -11,6 +11,7 @@ import { IngestQueueService } from './ingest-queue.service.js';
 import { NormalizationService } from './normalization.service.js';
 import { ReconciliationService } from './reconciliation.service.js';
 import { RetentionService } from './retention.service.js';
+import { MaintenanceScheduler } from './maintenance.scheduler.js';
 
 @Module({
   imports: [PrismaModule, RedisModule, MetaModule, forwardRef(() => ExecutionModule)],
@@ -20,6 +21,7 @@ import { RetentionService } from './retention.service.js';
     IngestQueueService,
     ReconciliationService,
     RetentionService,
+    MaintenanceScheduler,
     ContentService,
   ],
   exports: [

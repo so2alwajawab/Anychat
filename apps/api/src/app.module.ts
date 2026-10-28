@@ -1,6 +1,7 @@
 import { Module, ValidationPipe } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
+import { ScheduleModule } from '@nestjs/schedule';
 import { REDACT_LOG_FIELDS } from '@anychat/shared';
 import { PrismaModule } from './common/prisma/prisma.module.js';
 import { RedisModule } from './common/redis/redis.module.js';
@@ -36,18 +37,21 @@ const isDev = serverEnv.NODE_ENV === 'development';
             return { statusCode: res.statusCode };
           },
         },
+        // Human-readable output belongs to local development only. Production must
+        // emit raw JSON lines so log collectors (Loki, CloudWatch, ELK…) can parse them.
         ...(isDev
-          ? {}
-          : {
+          ? {
               transport: {
                 target: 'pino-pretty',
                 options: { colorize: true, translateTime: 'HH:MM:ss', ignore: 'pid,hostname' },
               },
-            }),
+            }
+          : {}),
       },
     }),
     PrismaModule,
     RedisModule,
+    ScheduleModule.forRoot(),
     AuditModule,
     AuthModule,
     HealthModule,

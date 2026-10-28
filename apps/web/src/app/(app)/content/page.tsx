@@ -68,7 +68,8 @@ function ContentContent() {
   const [feedback, setFeedback] = useState<{ text: string; error: boolean } | null>(null);
 
   const fetchData = useCallback(async () => {
-    const assetsData = await getJson<{ assets: AssetOption[] }>("/api/v1/meta/assets").catch(() => ({ assets: [] }));
+    // GET /meta/assets responds with `{ items: [...] }` (see assets.service.list()).
+    const assetsData = await getJson<{ items: AssetOption[] }>("/api/v1/meta/assets").catch(() => ({ items: [] as AssetOption[] }));
 
     const queryParams = new URLSearchParams();
     if (selectedAsset) queryParams.set("assetId", selectedAsset);
@@ -81,7 +82,7 @@ function ContentContent() {
     ]);
 
     return {
-      assets: assetsData.assets ?? [],
+      assets: assetsData.items ?? [],
       posts: postsRes.items ?? [],
       comments: commentsRes.items ?? [],
     };

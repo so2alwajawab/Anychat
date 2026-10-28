@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../common/prisma/prisma.module.js';
 import { RedisService } from '../../common/redis/redis.module.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -48,6 +49,41 @@ export class OutboundService {
     private readonly graph: GraphClient,
     private readonly audit: AuditService,
   ) {}
+
+  /**
+   * Prisma-shaped state transition, scoped to a claim this worker still owns.
+   *
+   * Same call shape as `prisma.outboundAction.update({ data })`, but the WHERE
+   * clause is derived from the claim: `status = 'sending'` AND
+   * `fencingToken = <token minted when we claimed>`.
+   *
+   * The crash reconciler may reset a stuck action back to 'pending' (clearing
+   * its token) and hand the row to a second worker while this one is still
+   * mid-flight. Gating every post-claim write on our own token means a stale
+   * worker can no longer overwrite a newer claim — the exact duplicate-send
+   * scenario fencing tokens exist to prevent.
+   *
+   * @returns `true` when the write applied, `false` when the claim was lost.
+   */
+  private async updateClaimedAction(
+    actionId: string,
+    fencingToken: string,
+    args: { data: Prisma.OutboundActionUpdateManyMutationInput },
+  ): Promise<boolean> {
+    const result = await this.prisma.outboundAction.updateMany({
+      where: { id: actionId, status: 'sending', fencingToken },
+      data: args.data,
+    });
+
+    if (result.count === 0) {
+      this.logger.warn(
+        `Lost claim on outbound action ${actionId}: fencing token no longer matches, leaving row untouched.`,
+      );
+      return false;
+    }
+
+    return true;
+  }
 
   /**
    * Rate limit budget check using Redis sliding window/counter.
@@ -152,8 +188,7 @@ export class OutboundService {
     // 3. Pre-flight checks: Rate budget & Token decryption
     const budgetOk = await this.checkRateBudget(input.assetId);
     if (!budgetOk) {
-      await this.prisma.outboundAction.update({
-        where: { id: action.id },
+      await this.updateClaimedAction(action.id, fencingToken, {
         data: {
           status: 'failed',
           lastErrorCode: 'RATE_LIMIT_EXCEEDED',
@@ -173,8 +208,7 @@ export class OutboundService {
     try {
       pageToken = await this.assets.decryptToken(input.assetId);
     } catch (err) {
-      await this.prisma.outboundAction.update({
-        where: { id: action.id },
+      await this.updateClaimedAction(action.id, fencingToken, {
         data: {
           status: 'failed',
           lastErrorCode: 'TOKEN_DECRYPT_FAILED',
@@ -208,8 +242,7 @@ export class OutboundService {
         );
       }
 
-      await this.prisma.outboundAction.update({
-        where: { id: action.id },
+      await this.updateClaimedAction(action.id, fencingToken, {
         data: {
           status: 'sent',
           remoteMessageId: sendResult.id,
@@ -239,8 +272,7 @@ export class OutboundService {
         const isRateLimit = RATE_LIMIT_CODES.has(err.code);
         const isAuthError = err.code === 190 || err.code === 200;
 
-        await this.prisma.outboundAction.update({
-          where: { id: action.id },
+        await this.updateClaimedAction(action.id, fencingToken, {
           data: {
             status: 'failed',
             lastErrorCode: String(err.code),
@@ -281,8 +313,7 @@ export class OutboundService {
 
       // Ambiguous outcome (e.g. network timeout): mark 'unknown' to avoid duplicate send
       const message = (err as Error).message || 'unknown network error';
-      await this.prisma.outboundAction.update({
-        where: { id: action.id },
+      await this.updateClaimedAction(action.id, fencingToken, {
         data: {
           status: 'unknown',
           lastErrorCode: 'NETWORK_TIMEOUT',
@@ -424,8 +455,7 @@ export class OutboundService {
     // 4. Rate budget check (750/hour per asset)
     const budgetOk = await this.checkPrivateReplyRateBudget(input.assetId);
     if (!budgetOk) {
-      await this.prisma.outboundAction.update({
-        where: { id: action.id },
+      await this.updateClaimedAction(action.id, fencingToken, {
         data: {
           status: 'failed',
           lastErrorCode: 'RATE_LIMIT_EXCEEDED',
@@ -446,8 +476,7 @@ export class OutboundService {
       where: { id: input.assetId },
     });
     if (!asset) {
-      await this.prisma.outboundAction.update({
-        where: { id: action.id },
+      await this.updateClaimedAction(action.id, fencingToken, {
         data: {
           status: 'failed',
           lastErrorCode: 'ASSET_NOT_FOUND',
@@ -461,8 +490,7 @@ export class OutboundService {
     try {
       pageToken = await this.assets.decryptToken(input.assetId);
     } catch (err) {
-      await this.prisma.outboundAction.update({
-        where: { id: action.id },
+      await this.updateClaimedAction(action.id, fencingToken, {
         data: {
           status: 'failed',
           lastErrorCode: 'TOKEN_DECRYPT_FAILED',
@@ -500,8 +528,7 @@ export class OutboundService {
         );
       }
 
-      await this.prisma.outboundAction.update({
-        where: { id: action.id },
+      await this.updateClaimedAction(action.id, fencingToken, {
         data: {
           status: 'sent',
           remoteMessageId: sendResult.id,
@@ -532,8 +559,7 @@ export class OutboundService {
         const isRateLimit = RATE_LIMIT_CODES.has(err.code);
         const isAuthError = err.code === 190 || err.code === 200;
 
-        await this.prisma.outboundAction.update({
-          where: { id: action.id },
+        await this.updateClaimedAction(action.id, fencingToken, {
           data: {
             status: 'failed',
             lastErrorCode: String(err.code),
@@ -574,8 +600,7 @@ export class OutboundService {
 
       // Ambiguous outcome (e.g. network timeout): mark 'unknown' to avoid duplicate send
       const message = (err as Error).message || 'unknown network error';
-      await this.prisma.outboundAction.update({
-        where: { id: action.id },
+      await this.updateClaimedAction(action.id, fencingToken, {
         data: {
           status: 'unknown',
           lastErrorCode: 'NETWORK_TIMEOUT',
