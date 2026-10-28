@@ -169,6 +169,7 @@ export class NormalizationService {
         },
         create: {
           assetId: asset.id,
+          organizationId: asset.organizationId,
           externalId: item.externalPostId,
           platform: item.platform,
           createdTime: item.sourceCreatedAt,
@@ -184,6 +185,7 @@ export class NormalizationService {
       const created = await this.prisma.commentEvent.create({
         data: {
           assetId: asset.id,
+          organizationId: asset.organizationId,
           postId: postRecordId,
           platform: item.platform,
           externalCommentId: item.externalCommentId,

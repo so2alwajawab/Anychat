@@ -10,16 +10,59 @@ datasource db {
 model OwnerAccount {
   id                String    @id @default(uuid()) @db.Uuid
   username          String    @unique
+  email             String?   @unique @map("email")
+  emailVerifiedAt   DateTime? @map("email_verified_at")
   passwordHash      String    @map("password_hash")
   passwordChangedAt DateTime  @default(now()) @map("password_changed_at")
   lockedUntil       DateTime? @map("locked_until")
   failedLoginCount  Int       @default(0) @map("failed_login_count")
   createdAt         DateTime  @default(now()) @map("created_at")
 
-  sessions       OwnerSession[]
-  recoveryCodes  PasswordRecovery[]
+  sessions      OwnerSession[]
+  recoveryCodes PasswordRecovery[]
+  memberships   Membership[]
 
   @@map("owner_account")
+}
+
+/// A tenant: the billing/isolation boundary of the SaaS. Everything a customer
+/// sees or creates belongs to exactly one organization.
+model Organization {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  status    String   @default("active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  memberships       Membership[]
+  assets            MetaConnectedAsset[]
+  workflows         Workflow[]
+  templates         MessageTemplate[]
+  posts             Post[]
+  comments          CommentEvent[]
+  subscriptions     WebhookSubscription[]
+  runs              ExecutionRun[]
+  audits            AuditLog[]
+  webhookDeliveries WebhookDelivery[]
+
+  @@map("organization")
+}
+
+/// Role of a user inside an organization. Phase 1 only exercises `owner`;
+/// `admin`/`member` are reserved for team access.
+model Membership {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  role           String   @default("owner")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user         OwnerAccount @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@map("membership")
 }
 
 model OwnerSession {
@@ -56,20 +99,24 @@ model PasswordRecovery {
 }
 
 model AuditLog {
-  id        String   @id @default(uuid()) @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at")
-  actorId   String?  @map("actor_id") @db.Uuid
-  actorType String   @default("owner") @map("actor_type")
-  action    String
-  entity    String?
-  entityId  String?  @map("entity_id")
-  outcome   String   @default("success")
-  ip        String?
-  userAgent String?  @map("user_agent")
-  meta      Json?
+  id             String   @id @default(uuid()) @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+  actorId        String?  @map("actor_id") @db.Uuid
+  actorType      String   @default("owner") @map("actor_type")
+  action         String
+  entity         String?
+  entityId       String?  @map("entity_id")
+  outcome        String   @default("success")
+  ip             String?
+  userAgent      String?  @map("user_agent")
+  meta           Json?
+  organizationId String?  @map("organization_id") @db.Uuid
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   @@index([createdAt(sort: Desc)])
   @@index([action])
+  @@index([organizationId])
   @@map("audit_log")
 }
 
@@ -96,17 +143,19 @@ model MetaAppConfig {
 }
 
 model MetaConnectedAsset {
-  id               String    @id @default(uuid()) @db.Uuid
-  platform         String
-  externalId       String    @unique @map("external_id")
-  displayName      String    @map("display_name")
-  linkedPageId     String?   @map("linked_page_id")
-  permissionsGrant Json      @default("[]") @map("permissions_granted")
-  connectionStatus String    @default("connected") @map("connection_status")
-  selected         Boolean   @default(false)
-  connectedAt      DateTime  @default(now()) @map("connected_at")
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  platform          String
+  externalId        String    @unique @map("external_id")
+  displayName       String    @map("display_name")
+  linkedPageId      String?   @map("linked_page_id")
+  permissionsGrant  Json      @default("[]") @map("permissions_granted")
+  connectionStatus  String    @default("connected") @map("connection_status")
+  selected          Boolean   @default(false)
+  connectedAt       DateTime  @default(now()) @map("connected_at")
   lastHealthCheckAt DateTime? @map("last_health_check_at")
 
+  organization  Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   credential    MetaCredential?
   subscriptions WebhookSubscription[]
   posts         Post[]
@@ -114,6 +163,7 @@ model MetaConnectedAsset {
   workflows     Workflow[]
 
   @@index([platform])
+  @@index([organizationId])
   @@map("meta_connected_asset")
 }
 
@@ -136,6 +186,7 @@ model MetaCredential {
 model WebhookSubscription {
   id                 String    @id @default(uuid()) @db.Uuid
   assetId            String    @map("asset_id") @db.Uuid
+  organizationId     String    @map("organization_id") @db.Uuid
   object             String
   subscribedFields   Json      @default("[]") @map("subscribed_fields")
   subscriptionStatus String    @default("pending") @map("subscription_status")
@@ -144,72 +195,85 @@ model WebhookSubscription {
   diagnostics        Json?
   createdAt          DateTime  @default(now()) @map("created_at")
 
-  asset MetaConnectedAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  asset        MetaConnectedAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([assetId, object])
   @@index([assetId])
+  @@index([organizationId])
   @@map("webhook_subscription")
 }
 
 model WebhookDelivery {
-  id              String    @id @default(uuid()) @db.Uuid
-  deliveryHash    String    @unique @map("delivery_hash")
-  objectType      String    @map("object_type")
+  id              String   @id @default(uuid()) @db.Uuid
+  deliveryHash    String   @unique @map("delivery_hash")
+  objectType      String   @map("object_type")
   payload         Json
-  signatureStatus String    @map("signature_status")
-  receivedAt      DateTime  @default(now()) @map("received_at")
-  processStatus   String    @default("received") @map("process_status")
+  signatureStatus String   @map("signature_status")
+  receivedAt      DateTime @default(now()) @map("received_at")
+  processStatus   String   @default("received") @map("process_status")
+  organizationId  String?  @map("organization_id") @db.Uuid
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   @@index([receivedAt(sort: Desc)])
+  @@index([organizationId])
   @@map("webhook_delivery")
 }
 
 model Post {
-  id                 String    @id @default(uuid()) @db.Uuid
-  assetId            String    @map("asset_id") @db.Uuid
-  externalId         String    @map("external_id")
+  id                 String   @id @default(uuid()) @db.Uuid
+  assetId            String   @map("asset_id") @db.Uuid
+  externalId         String   @map("external_id")
   platform           String
-  messagePreview     String?   @map("message_preview")
-  createdTime        DateTime  @map("created_time")
+  messagePreview     String?  @map("message_preview")
+  createdTime        DateTime @map("created_time")
   permalink          String?
-  isEligibleForReply Boolean   @default(true) @map("is_eligible_for_reply")
-  syncedAt           DateTime  @default(now()) @map("synced_at")
+  isEligibleForReply Boolean  @default(true) @map("is_eligible_for_reply")
+  syncedAt           DateTime @default(now()) @map("synced_at")
+  organizationId     String   @map("organization_id") @db.Uuid
 
-  asset    MetaConnectedAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  comments CommentEvent[]
+  asset        MetaConnectedAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  comments     CommentEvent[]
 
   @@unique([platform, externalId])
   @@index([assetId])
+  @@index([organizationId])
   @@map("post")
 }
 
 model CommentEvent {
-  id                String    @id @default(uuid()) @db.Uuid
-  assetId           String    @map("asset_id") @db.Uuid
-  postId            String?   @map("post_id") @db.Uuid
+  id                String   @id @default(uuid()) @db.Uuid
+  assetId           String   @map("asset_id") @db.Uuid
+  postId            String?  @map("post_id") @db.Uuid
   platform          String
-  externalCommentId String    @map("external_comment_id")
-  parentCommentId   String?   @map("parent_comment_id")
-  authorScopedId    String    @map("author_scoped_id")
-  authorUsername    String?   @map("author_username")
+  externalCommentId String   @map("external_comment_id")
+  parentCommentId   String?  @map("parent_comment_id")
+  authorScopedId    String   @map("author_scoped_id")
+  authorUsername    String?  @map("author_username")
   text              String
-  sourceCreatedAt   DateTime  @map("source_created_at")
-  rawPayloadRef     String?   @map("raw_payload_ref")
-  dedupeKey         String    @unique @map("dedupe_key")
-  receivedAt        DateTime  @default(now()) @map("received_at")
-  direction         String    @default("inbound")
+  sourceCreatedAt   DateTime @map("source_created_at")
+  rawPayloadRef     String?  @map("raw_payload_ref")
+  dedupeKey         String   @unique @map("dedupe_key")
+  receivedAt        DateTime @default(now()) @map("received_at")
+  direction         String   @default("inbound")
+  organizationId    String   @map("organization_id") @db.Uuid
 
-  asset MetaConnectedAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  post  Post?              @relation(fields: [postId], references: [id], onDelete: SetNull)
-  runs  ExecutionRun[]
+  asset        MetaConnectedAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  post         Post?              @relation(fields: [postId], references: [id], onDelete: SetNull)
+  runs         ExecutionRun[]
 
   @@index([assetId, sourceCreatedAt])
   @@index([postId])
+  @@index([organizationId])
   @@map("comment_event")
 }
 
 model Workflow {
   id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
   assetId        String?  @map("asset_id") @db.Uuid
   name           String
   description    String?
@@ -219,11 +283,13 @@ model Workflow {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  asset    MetaConnectedAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
-  versions WorkflowVersion[]
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  asset        MetaConnectedAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  versions     WorkflowVersion[]
 
   @@index([assetId])
   @@index([status])
+  @@index([organizationId])
   @@map("workflow")
 }
 
@@ -237,7 +303,7 @@ model WorkflowVersion {
   publishedAt   DateTime? @map("published_at")
   createdAt     DateTime  @default(now()) @map("created_at")
 
-  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflow Workflow       @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   runs     ExecutionRun[]
 
   @@unique([workflowId, version])
@@ -247,18 +313,23 @@ model WorkflowVersion {
 
 model MessageTemplate {
   id               String   @id @default(uuid()) @db.Uuid
-  name             String   @unique
+  organizationId   String   @map("organization_id") @db.Uuid
+  name             String
   body             String
   allowedVariables Json     @default("[]") @map("allowed_variables")
   version          Int      @default(1)
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
   @@map("message_template")
 }
 
 model ExecutionRun {
   id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
   workflowVersionId String    @map("workflow_version_id") @db.Uuid
   commentEventId    String    @map("comment_event_id") @db.Uuid
   status            String    @default("pending")
@@ -269,6 +340,7 @@ model ExecutionRun {
   attempt           Int       @default(1)
   createdAt         DateTime  @default(now()) @map("created_at")
 
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   workflowVersion WorkflowVersion  @relation(fields: [workflowVersionId], references: [id], onDelete: Restrict)
   commentEvent    CommentEvent     @relation(fields: [commentEventId], references: [id], onDelete: Cascade)
   nodeExecutions  NodeExecution[]
@@ -278,6 +350,7 @@ model ExecutionRun {
   @@index([workflowVersionId, startedAt])
   @@index([status])
   @@index([commentEventId])
+  @@index([organizationId])
   @@map("execution_run")
 }
 

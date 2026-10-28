@@ -11,6 +11,7 @@ import {
   type WorkflowDefinition,
 } from '@anychat/shared';
 import { PrismaService } from '../../common/prisma/prisma.module.js';
+import { requireOrgId } from '../../common/tenancy/org-context.js';
 import { AuditService } from '../audit/audit.service.js';
 import { AUDIT_ACTIONS } from '../audit/audit.constants.js';
 import type {
@@ -161,10 +162,12 @@ export class WorkflowsService {
   }
 
   async create(dto: CreateWorkflowDto, actorId?: string) {
+    const organizationId = requireOrgId();
     const definition = (dto.definition as WorkflowDefinition) ?? createDefaultDefinition(dto.name);
 
     const workflow = await this.prisma.workflow.create({
       data: {
+        organizationId,
         name: dto.name.trim(),
         description: dto.description?.trim(),
         assetId: dto.assetId || null,

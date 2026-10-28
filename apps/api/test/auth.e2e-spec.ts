@@ -15,6 +15,7 @@ import {
   getCsrf,
   login,
   postWithCsrf,
+  seedOwner,
 } from './helpers.js';
 
 describe('auth (e2e)', () => {
@@ -32,7 +33,7 @@ describe('auth (e2e)', () => {
     jar = new CookieJar();
 
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE audit_log, password_recovery, owner_session, owner_account, system_setting RESTART IDENTITY CASCADE',
+      'TRUNCATE TABLE audit_log, password_recovery, owner_session, owner_account, system_setting, membership, organization RESTART IDENTITY CASCADE',
     );
     const passwordHash = await argon2.hash(TEST_PASSWORD, {
       type: argon2.argon2id,
@@ -40,9 +41,9 @@ describe('auth (e2e)', () => {
       timeCost: 3,
       parallelism: 1,
     });
-    const owner = await prisma.ownerAccount.create({ data: { username: TEST_USERNAME, passwordHash } });
+    const { ownerId } = await seedOwner(prisma, { username: TEST_USERNAME, passwordHash });
     await prisma.passwordRecovery.create({
-      data: { ownerId: owner.id, codeHash: sha256Hex(TEST_RECOVERY_CODE.replace(/[^A-Za-z0-9]/g, '').toUpperCase()) },
+      data: { ownerId, codeHash: sha256Hex(TEST_RECOVERY_CODE.replace(/[^A-Za-z0-9]/g, '').toUpperCase()) },
     });
     await redis.client.flushdb();
   });

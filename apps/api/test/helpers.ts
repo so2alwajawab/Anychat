@@ -4,11 +4,13 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { CSRF_COOKIE } from '@anychat/shared';
 import { AppModule } from '../src/app.module.js';
+import type { PrismaService } from '../src/common/prisma/prisma.module.js';
 import { GraphClient } from '../src/modules/meta/graph.client.js';
 
 export const TEST_USERNAME = 'owner';
 export const TEST_PASSWORD = 'MetaDev-2026-Chat';
 export const TEST_RECOVERY_CODE = '01234567-89AB-CDEF-0123-456789ABCDEF';
+export const TEST_ORG_NAME = 'E2E Workspace';
 
 export type Http = ReturnType<typeof request>;
 
@@ -85,4 +87,42 @@ export async function login(
   const res = await postWithCsrf(http, jar, '/api/v1/auth/login', { username, password });
   jar.absorb(res);
   return res;
+}
+
+/**
+ * Creates an owner account together with its organization and `owner` membership.
+ * The auth guard rejects any session whose user has no membership (403), so every
+ * spec that seeds a user must seed the full tenant trio. Returns the created
+ * organization id for specs that need to assert tenancy.
+ */
+export async function seedOwner(
+  prisma: PrismaService,
+  opts: {
+    username: string;
+    passwordHash: string;
+    email?: string;
+    organizationName?: string;
+    upsert?: boolean;
+  },
+): Promise<{ ownerId: string; organizationId: string }> {
+  const { username, passwordHash, email, organizationName, upsert } = opts;
+
+  const owner = upsert
+    ? await prisma.ownerAccount.upsert({
+        where: { username },
+        update: { passwordHash, failedLoginCount: 0, lockedUntil: null },
+        create: { username, passwordHash, ...(email ? { email } : {}) },
+      })
+    : await prisma.ownerAccount.create({
+        data: { username, passwordHash, ...(email ? { email } : {}) },
+      });
+
+  const organization = await prisma.organization.create({
+    data: { name: organizationName ?? TEST_ORG_NAME },
+  });
+  await prisma.membership.create({
+    data: { userId: owner.id, organizationId: organization.id, role: 'owner' },
+  });
+
+  return { ownerId: owner.id, organizationId: organization.id };
 }

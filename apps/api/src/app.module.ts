@@ -1,5 +1,5 @@
 import { Module, ValidationPipe } from '@nestjs/common';
-import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { ScheduleModule } from '@nestjs/schedule';
 import { REDACT_LOG_FIELDS } from '@anychat/shared';
@@ -7,6 +7,7 @@ import { PrismaModule } from './common/prisma/prisma.module.js';
 import { RedisModule } from './common/redis/redis.module.js';
 import { AdminAuthGuard } from './common/guards/admin-auth.guard.js';
 import { CsrfGuard } from './common/guards/csrf.guard.js';
+import { OrgContextInterceptor } from './common/interceptors/org-context.interceptor.js';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 import { serverEnv } from './common/config/env.js';
 import { AuditModule } from './modules/audit/audit.module.js';
@@ -66,6 +67,7 @@ const isDev = serverEnv.NODE_ENV === 'development';
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_GUARD, useClass: AdminAuthGuard },
     { provide: APP_GUARD, useClass: CsrfGuard },
+    { provide: APP_INTERCEPTOR, useClass: OrgContextInterceptor },
   ],
 })
 export class AppModule {}

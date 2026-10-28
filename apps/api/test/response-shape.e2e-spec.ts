@@ -15,6 +15,7 @@ import {
   getCsrf,
   login,
   postWithCsrf,
+  seedOwner,
 } from './helpers.js';
 
 /**
@@ -60,7 +61,7 @@ describe('response shape (e2e, Gate G1.7)', () => {
 
     const prisma = app.get(PrismaService);
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE audit_log, password_recovery, owner_session, owner_account, system_setting RESTART IDENTITY CASCADE',
+      'TRUNCATE TABLE audit_log, password_recovery, owner_session, owner_account, system_setting, membership, organization RESTART IDENTITY CASCADE',
     );
     const passwordHash = await argon2.hash(TEST_PASSWORD, {
       type: argon2.argon2id,
@@ -68,12 +69,10 @@ describe('response shape (e2e, Gate G1.7)', () => {
       timeCost: 3,
       parallelism: 1,
     });
-    const owner = await prisma.ownerAccount.create({
-      data: { username: TEST_USERNAME, passwordHash },
-    });
+    const { ownerId } = await seedOwner(prisma, { username: TEST_USERNAME, passwordHash });
     await prisma.passwordRecovery.create({
       data: {
-        ownerId: owner.id,
+        ownerId,
         codeHash: sha256Hex(normalizeRecoveryCode(TEST_RECOVERY_CODE)),
       },
     });

@@ -17,7 +17,7 @@ export class SubscriptionsService {
     private readonly audit: AuditService,
   ) {}
 
-  async subscribePage(assetId: string, externalId: string, pageToken: string, fields: string[], actorId?: string): Promise<{ ok: boolean; code?: number }> {
+  async subscribePage(assetId: string, organizationId: string, externalId: string, pageToken: string, fields: string[], actorId?: string): Promise<{ ok: boolean; code?: number }> {
     try {
       await this.graph.subscribePage(externalId, pageToken, fields);
       await this.prisma.webhookSubscription.upsert({
@@ -30,6 +30,7 @@ export class SubscriptionsService {
         },
         create: {
           assetId,
+          organizationId,
           object: 'page',
           subscribedFields: fields,
           subscriptionStatus: 'active',
@@ -59,6 +60,7 @@ export class SubscriptionsService {
           },
           create: {
             assetId,
+            organizationId,
             object: 'page',
             subscribedFields: fields,
             subscriptionStatus: 'failed',
@@ -73,7 +75,7 @@ export class SubscriptionsService {
     }
   }
 
-  async recordInstagramDashboard(assetId: string, fields: string[], actorId?: string): Promise<void> {
+  async recordInstagramDashboard(assetId: string, organizationId: string, fields: string[], actorId?: string): Promise<void> {
     await this.prisma.webhookSubscription.upsert({
       where: { assetId_object: { assetId, object: 'instagram' } },
       update: {
@@ -83,6 +85,7 @@ export class SubscriptionsService {
       },
       create: {
         assetId,
+        organizationId,
         object: 'instagram',
         subscribedFields: fields,
         subscriptionStatus: 'dashboard_required',

@@ -33,8 +33,19 @@ async function main(): Promise<void> {
     const passwordHash = await argon2.hash(password, ARGON_OPTIONS);
     const { code, codeHash } = generateRecoveryCode();
 
-    const account = await prisma.ownerAccount.create({
-      data: { username, passwordHash },
+    // Every account must belong to an organization or the auth guard rejects it
+    // (403). Bootstrap gives the CLI-created owner a personal workspace.
+    const account = await prisma.$transaction(async (tx) => {
+      const created = await tx.ownerAccount.create({
+        data: { username, passwordHash },
+      });
+      const organization = await tx.organization.create({
+        data: { name: `${username}'s Workspace` },
+      });
+      await tx.membership.create({
+        data: { userId: created.id, organizationId: organization.id, role: 'owner' },
+      });
+      return created;
     });
     await prisma.$transaction([
       prisma.passwordRecovery.create({

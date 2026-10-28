@@ -23,6 +23,8 @@ export const ERROR_CODES = {
   CONFLICT: 'CONFLICT',
   RUN_NOT_FOUND: 'RUN_NOT_FOUND',
   RUN_NOT_RETRYABLE: 'RUN_NOT_RETRYABLE',
+  EMAIL_TAKEN: 'EMAIL_TAKEN',
+  USERNAME_TAKEN: 'USERNAME_TAKEN',
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
@@ -52,6 +54,8 @@ const AR: Record<ErrorCode, string> = {
   CONFLICT: 'تعارض في حفظ التعديل: تم تعديل السجل من جلسة أخرى، يرجى إعادة تحميل الصفحة.',
   RUN_NOT_FOUND: 'عملية التنفيذ غير موجودة.',
   RUN_NOT_RETRYABLE: 'لا يمكن إعادة محاولة هذه العملية.',
+  EMAIL_TAKEN: 'هذا البريد الإلكتروني مسجَّل بالفعل. سجّل الدخول أو استخدم بريداً آخر.',
+  USERNAME_TAKEN: 'اسم المستخدم هذا محجوز. اختر اسماً آخر.',
 };
 
 export interface ApiErrorBody {

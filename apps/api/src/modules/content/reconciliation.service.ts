@@ -53,6 +53,7 @@ export class ReconciliationService {
           },
           create: {
             assetId: asset.id,
+            organizationId: asset.organizationId,
             externalId: p.id,
             platform: 'facebook',
             messagePreview: p.message ?? null,
@@ -103,6 +104,7 @@ export class ReconciliationService {
           },
           create: {
             assetId: asset.id,
+            organizationId: asset.organizationId,
             externalId: m.id,
             platform: 'instagram',
             messagePreview: m.message ?? null,

@@ -50,7 +50,16 @@ export class AdminAuthGuard implements CanActivate {
     const tokenHash = sha256Hex(token);
     const session = await this.prisma.ownerSession.findUnique({
       where: { tokenHash },
-      include: { owner: true },
+      include: {
+        owner: {
+          include: {
+            // Phase 1: a user belongs to exactly one organization (their own).
+            // Team support (multiple memberships) will need an explicit
+            // org-selection step; until then we take the first membership.
+            memberships: { take: 1, orderBy: { createdAt: 'asc' } },
+          },
+        },
+      },
     });
 
     const now = new Date();
@@ -103,6 +112,16 @@ export class AdminAuthGuard implements CanActivate {
       createdAt: session.createdAt,
       absoluteExpiresAt: session.absoluteExpiresAt,
     };
+
+    // A signed-in user with no organization cannot reach tenant data. This only
+    // happens for an account that was never onboarded; treat it as unauthorized
+    // rather than leaking an unscoped view.
+    const membership = session.owner.memberships[0];
+    if (!membership) {
+      throw new HttpException(apiError(403, ERROR_CODES.UNAUTHORIZED), 403);
+    }
+    req.organizationId = membership.organizationId;
+
     return true;
   }
 }

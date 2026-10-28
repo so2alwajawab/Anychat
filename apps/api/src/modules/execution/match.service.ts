@@ -102,6 +102,7 @@ export class MatchService {
       if (wf.status === 'paused') {
         const skippedRun = await this.prisma.executionRun.create({
           data: {
+            organizationId: comment.organizationId,
             workflowVersionId: activeVersion.id,
             commentEventId: comment.id,
             status: 'skipped',
@@ -124,6 +125,7 @@ export class MatchService {
       // Create new active ExecutionRun
       const newRun = await this.prisma.executionRun.create({
         data: {
+          organizationId: comment.organizationId,
           workflowVersionId: activeVersion.id,
           commentEventId: comment.id,
           status: 'pending',

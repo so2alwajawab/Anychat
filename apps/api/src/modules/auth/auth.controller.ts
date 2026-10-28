@@ -4,7 +4,7 @@ import { CSRF_COOKIE, randomToken } from '@anychat/shared';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { clearAuthCookies, setCsrfCookie, setSessionCookie } from '../../common/cookies.js';
 import { AuthService } from './auth.service.js';
-import { LoginDto, RecoveryDto } from './dto.js';
+import { LoginDto, RecoveryDto, SignupDto } from './dto.js';
 
 @Controller('auth')
 export class AuthController {
@@ -17,6 +17,20 @@ export class AuthController {
     const token = existing && existing.length >= 20 ? existing : randomToken(32);
     setCsrfCookie(res, token);
     return { csrfToken: token };
+  }
+
+  @Public()
+  @Post('signup')
+  @HttpCode(201)
+  async signup(
+    @Body() dto: SignupDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { user, session } = await this.authService.signup(dto, req);
+    setSessionCookie(res, session.token);
+    setCsrfCookie(res, session.csrfToken);
+    return { user };
   }
 
   @Public()
@@ -63,6 +77,7 @@ export class AuthController {
   session(@Req() req: Request) {
     return {
       user: { id: req.session?.ownerId, username: req.session?.username },
+      organizationId: req.organizationId,
     };
   }
 }

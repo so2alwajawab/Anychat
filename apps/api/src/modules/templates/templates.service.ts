@@ -1,6 +1,7 @@
 import { HttpException, Injectable, NotFoundException } from '@nestjs/common';
 import { ERROR_CODES, apiError, validateTemplateVariables, extractTemplateVariables } from '@anychat/shared';
 import { PrismaService } from '../../common/prisma/prisma.module.js';
+import { requireOrgId } from '../../common/tenancy/org-context.js';
 import { AuditService } from '../audit/audit.service.js';
 import { AUDIT_ACTIONS } from '../audit/audit.constants.js';
 import type { CreateTemplateDto, UpdateTemplateDto } from './dto.js';
@@ -29,6 +30,7 @@ export class TemplatesService {
   }
 
   async create(dto: CreateTemplateDto, actorId?: string) {
+    const organizationId = requireOrgId();
     const varErrors = validateTemplateVariables(dto.body);
     if (varErrors.length > 0) {
       throw new HttpException(
@@ -37,8 +39,9 @@ export class TemplatesService {
       );
     }
 
-    const existing = await this.prisma.messageTemplate.findUnique({
-      where: { name: dto.name.trim() },
+    const name = dto.name.trim();
+    const existing = await this.prisma.messageTemplate.findFirst({
+      where: { organizationId, name },
     });
     if (existing) {
       throw new HttpException(
@@ -51,7 +54,8 @@ export class TemplatesService {
 
     const template = await this.prisma.messageTemplate.create({
       data: {
-        name: dto.name.trim(),
+        organizationId,
+        name,
         body: dto.body,
         allowedVariables,
         version: 1,
@@ -70,6 +74,7 @@ export class TemplatesService {
   }
 
   async update(id: string, dto: UpdateTemplateDto, actorId?: string) {
+    const organizationId = requireOrgId();
     const template = await this.getById(id);
 
     if (dto.body) {
@@ -83,8 +88,8 @@ export class TemplatesService {
     }
 
     if (dto.name && dto.name.trim() !== template.name) {
-      const existing = await this.prisma.messageTemplate.findUnique({
-        where: { name: dto.name.trim() },
+      const existing = await this.prisma.messageTemplate.findFirst({
+        where: { organizationId, name: dto.name.trim() },
       });
       if (existing && existing.id !== id) {
         throw new HttpException(

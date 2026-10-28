@@ -125,6 +125,7 @@ export class AssetsService {
   }
 
   async upsertDiscovered(
+    organizationId: string,
     pages: GraphPage[],
     igByPage: Map<string, GraphInstagramAccount | null>,
   ): Promise<{ facebook: number; instagram: number }> {
@@ -140,6 +141,7 @@ export class AssetsService {
           connectionStatus: 'connected',
         },
         create: {
+          organizationId,
           platform: 'facebook',
           externalId: page.id,
           displayName: page.name,
@@ -160,6 +162,7 @@ export class AssetsService {
           connectionStatus: 'connected',
         },
         create: {
+          organizationId,
           platform: 'instagram',
           externalId: ig.igUserId,
           displayName: ig.username ? `@${ig.username}` : ig.igUserId,

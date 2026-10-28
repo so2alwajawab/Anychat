@@ -28,6 +28,11 @@ export class AuditService {
           ip: req ? clientIp(req) : (entry.ip ?? null),
           userAgent: req ? userAgentOf(req) : (entry.userAgent ?? null),
           meta: entry.meta ? (redactValue(entry.meta) as object) : undefined,
+          // Request-path records are auto-stamped by the tenancy extension from
+          // the ALS context; background paths pass the tenant explicitly. If both
+          // are present the extension's context value wins (it overwrites), which
+          // is the safe direction.
+          organizationId: entry.organizationId ?? null,
         },
       });
     } catch (err) {

@@ -10,7 +10,15 @@ import { IS_PUBLIC_KEY } from '../src/common/decorators/public.decorator.js';
 import { PrismaService } from '../src/common/prisma/prisma.module.js';
 import { RedisService } from '../src/common/redis/redis.module.js';
 import { sha256Hex } from '../src/common/crypto/hash.js';
-import { CookieJar, Http, TEST_PASSWORD, TEST_USERNAME, createTestApp, login } from './helpers.js';
+import {
+  CookieJar,
+  Http,
+  TEST_PASSWORD,
+  TEST_USERNAME,
+  createTestApp,
+  login,
+  seedOwner,
+} from './helpers.js';
 
 interface RouteInfo {
   httpMethod: string;
@@ -60,6 +68,7 @@ const EXPECTED_ROUTES: RouteInfo[] = [
   { httpMethod: 'GET', path: '/healthz', isPublic: true },
   { httpMethod: 'GET', path: '/readyz', isPublic: true },
   { httpMethod: 'GET', path: '/api/v1/auth/csrf', isPublic: true },
+  { httpMethod: 'POST', path: '/api/v1/auth/signup', isPublic: true },
   { httpMethod: 'POST', path: '/api/v1/auth/login', isPublic: true },
   { httpMethod: 'POST', path: '/api/v1/auth/recovery', isPublic: true },
   { httpMethod: 'POST', path: '/api/v1/auth/logout', isPublic: true },
@@ -173,18 +182,17 @@ describe('authorization matrix (e2e)', () => {
       timeCost: 3,
       parallelism: 1,
     });
-    const owner = await prisma.ownerAccount.upsert({
-      where: { username: TEST_USERNAME },
-      update: { passwordHash, failedLoginCount: 0, lockedUntil: null },
-      create: { username: TEST_USERNAME, passwordHash },
+    const { ownerId } = await seedOwner(prisma, {
+      username: TEST_USERNAME,
+      passwordHash,
+      upsert: true,
     });
-    await prisma.passwordRecovery.deleteMany({ where: { ownerId: owner.id } });
+    await prisma.passwordRecovery.deleteMany({ where: { ownerId } });
     await prisma.passwordRecovery.create({
-      data: { ownerId: owner.id, codeHash: sha256Hex('0123456789ABCDEF0123456789ABCDEF') },
+      data: { ownerId, codeHash: sha256Hex('0123456789ABCDEF0123456789ABCDEF') },
     });
     await prisma.$executeRawUnsafe('DELETE FROM owner_session');
   });
-
   afterAll(async () => {
     await app.close();
   });

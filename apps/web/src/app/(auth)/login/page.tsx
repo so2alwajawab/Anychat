@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { APP_NAME, UI } from "@anychat/shared";
 import { ApiError, postJson } from "@/lib/api";
@@ -188,7 +189,7 @@ export default function LoginPage() {
         ) : null}
 
         {!issuedCode ? (
-          <div className="mt-5 text-center text-sm">
+          <div className="mt-5 space-y-2 text-center text-sm">
             <button
               type="button"
               onClick={() => switchMode(mode === "login" ? "recover" : "login")}
@@ -196,6 +197,14 @@ export default function LoginPage() {
             >
               {mode === "login" ? UI.recovery.tab : UI.recovery.backToLogin}
             </button>
+            {mode === "login" ? (
+              <p>
+                <span className="text-slate-600">{UI.login.noAccount} </span>
+                <Link href="/signup" className="text-brand hover:underline">
+                  {UI.login.createAccount}
+                </Link>
+              </p>
+            ) : null}
           </div>
         ) : null}
       </div>

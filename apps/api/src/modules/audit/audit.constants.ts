@@ -4,6 +4,9 @@ export const AUDIT_ACTIONS = {
   LOGIN_LOCKED: 'auth.login.locked',
   LOGIN_RATE_LIMITED: 'auth.login.rate_limited',
   LOGOUT: 'auth.logout',
+  SIGNUP_SUCCESS: 'auth.signup.success',
+  SIGNUP_FAILED: 'auth.signup.failed',
+  SIGNUP_RATE_LIMITED: 'auth.signup.rate_limited',
   SESSION_FINGERPRINT_MISMATCH: 'auth.session.fingerprint_mismatch',
   RECOVERY_USED: 'auth.recovery.used',
   RECOVERY_RATE_LIMITED: 'auth.recovery.rate_limited',
@@ -49,4 +52,11 @@ export interface AuditEntry {
   meta?: Record<string, unknown>;
   ip?: string | null;
   userAgent?: string | null;
+  /**
+   * Tenant to attribute this audit to. Request-path records are auto-stamped by
+   * the tenancy extension from the ALS context; background paths (OAuth,
+   * reconciliation, workers) pass it explicitly. Optional because some audits
+   * (system/CLI) are genuinely global.
+   */
+  organizationId?: string | null;
 }

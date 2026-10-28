@@ -21,7 +21,7 @@ import {
   LOGIN_MAX_FAILURES,
   RECOVERY_IP_MAX_PER_5_MINUTES,
 } from '../../common/config/env.js';
-import type { LoginDto, RecoveryDto } from './dto.js';
+import type { LoginDto, RecoveryDto, SignupDto } from './dto.js';
 import type { CreatedSession } from './session.service.js';
 import { SessionService } from './session.service.js';
 
@@ -68,6 +68,20 @@ export class AuthService {
     private readonly sessions: SessionService,
   ) {}
 
+  /**
+   * The organization a user belongs to (phase 1: exactly one), or null. Used to
+   * attribute auth audits: login/logout/recovery are public routes with no ALS
+   * tenant context, so their audit rows must be stamped explicitly or they fall
+   * outside the tenant-scoped audit list.
+   */
+  private async orgOf(userId: string): Promise<string | null> {
+    const membership = await this.prisma.membership.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+    });
+    return membership?.organizationId ?? null;
+  }
+
   async login(dto: LoginDto, req: Request): Promise<LoginOutcome> {
     const ip = clientIp(req);
     const attempts = await this.redis.incrementWithTtl(`rl:login:ip:${ip}`, 60).catch(() => 1);
@@ -76,8 +90,14 @@ export class AuthService {
       throw new HttpException(apiError(429, ERROR_CODES.RATE_LIMITED), 429);
     }
 
-    const username = dto.username.trim();
-    const account = await this.prisma.ownerAccount.findUnique({ where: { username } });
+    const identifier = dto.username.trim();
+    // Accept either an email or a username as the login identifier.
+    const account = await this.prisma.ownerAccount.findFirst({
+      where: { OR: [{ username: identifier }, { email: identifier }] },
+      include: { memberships: { take: 1, orderBy: { createdAt: 'asc' } } },
+    });
+    // Resolve the tenant up front so every auth audit below can be stamped.
+    const organizationId = account?.memberships[0]?.organizationId ?? null;
 
     if (!account) {
       await argon2.verify(DUMMY_HASH, dto.password).catch(() => false);
@@ -85,7 +105,7 @@ export class AuthService {
         {
           action: AUDIT_ACTIONS.LOGIN_FAILED,
           outcome: 'failure',
-          meta: { username, reason: 'unknown_user' },
+          meta: { username: identifier, reason: 'unknown_user' },
         },
         req,
       );
@@ -99,6 +119,7 @@ export class AuthService {
         {
           action: AUDIT_ACTIONS.LOGIN_LOCKED,
           actorId: account.id,
+          organizationId,
           outcome: 'failure',
           meta: { reason: 'still_locked', retryAfterSeconds },
         },
@@ -126,6 +147,7 @@ export class AuthService {
         {
           action: AUDIT_ACTIONS.LOGIN_FAILED,
           actorId: account.id,
+          organizationId,
           outcome: 'failure',
           meta: { failedLoginCount, reason: 'bad_password' },
         },
@@ -136,6 +158,7 @@ export class AuthService {
           {
             action: AUDIT_ACTIONS.LOGIN_LOCKED,
             actorId: account.id,
+            organizationId,
             outcome: 'failure',
             meta: { lockedUntil: lockedUntil?.toISOString() },
           },
@@ -161,9 +184,104 @@ export class AuthService {
 
     const csrfToken = req.csrfToken ?? randomToken(32);
     const session = await this.sessions.create(account.id, csrfToken, req);
-    await this.audit.record({ action: AUDIT_ACTIONS.LOGIN_SUCCESS, actorId: account.id }, req);
+    await this.audit.record(
+      { action: AUDIT_ACTIONS.LOGIN_SUCCESS, actorId: account.id, organizationId },
+      req,
+    );
 
     return { user: { id: account.id, username: account.username }, session };
+  }
+
+  /**
+   * Registers a new customer: creates the user account, their first
+   * organization (workspace), and an `owner` membership linking them — all in a
+   * single transaction so a partial signup can never leave an orphaned account.
+   * Ends by opening a session, exactly like login.
+   */
+  async signup(dto: SignupDto, req: Request): Promise<LoginOutcome> {
+    const ip = clientIp(req);
+    const attempts = await this.redis.incrementWithTtl(`rl:signup:ip:${ip}`, 60).catch(() => 1);
+    if (attempts > LOGIN_IP_MAX_PER_MINUTE) {
+      await this.audit.record(
+        { action: AUDIT_ACTIONS.SIGNUP_RATE_LIMITED, outcome: 'failure' },
+        req,
+      );
+      throw new HttpException(apiError(429, ERROR_CODES.RATE_LIMITED), 429);
+    }
+
+    const email = dto.email.trim().toLowerCase();
+    const username = dto.username.trim();
+    const orgName = (dto.organizationName ?? '').trim() || `${username}'s Workspace`;
+
+    // Password policy mirrors recovery: length + weak/common + no username leak.
+    const policy = validatePassword(dto.password, username);
+    if (!policy.ok) {
+      throw new HttpException(
+        apiError(422, ERROR_CODES.PASSWORD_TOO_WEAK, { reason: policy.reason }),
+        422,
+      );
+    }
+
+    // Pre-check for a clear conflict message (the unique constraints are still
+    // the source of truth under a race; see catch below).
+    const taken = await this.prisma.ownerAccount.findFirst({
+      where: { OR: [{ email }, { username }] },
+    });
+    if (taken) {
+      const code = taken.email === email ? ERROR_CODES.EMAIL_TAKEN : ERROR_CODES.USERNAME_TAKEN;
+      await this.audit.record(
+        { action: AUDIT_ACTIONS.SIGNUP_FAILED, outcome: 'failure', meta: { reason: code } },
+        req,
+      );
+      throw new HttpException(apiError(409, code), 409);
+    }
+
+    const passwordHash = await argon2.hash(dto.password, ARGON_OPTIONS);
+    const csrfToken = req.csrfToken ?? randomToken(32);
+
+    let accountId: string;
+    let organizationId: string;
+    try {
+      const created = await this.prisma.$transaction(async (tx) => {
+        const account = await tx.ownerAccount.create({
+          data: { username, email, passwordHash },
+        });
+        const organization = await tx.organization.create({
+          data: { name: orgName },
+        });
+        await tx.membership.create({
+          data: { userId: account.id, organizationId: organization.id, role: 'owner' },
+        });
+        return { accountId: account.id, organizationId: organization.id };
+      });
+      accountId = created.accountId;
+      organizationId = created.organizationId;
+    } catch (err) {
+      // Unique-constraint race: someone registered the same email/username
+      // between our pre-check and the insert.
+      const message = err instanceof Error ? err.message : '';
+      if (message.includes('owner_account_email_key')) {
+        throw new HttpException(apiError(409, ERROR_CODES.EMAIL_TAKEN), 409);
+      }
+      if (message.includes('owner_account_username_key')) {
+        throw new HttpException(apiError(409, ERROR_CODES.USERNAME_TAKEN), 409);
+      }
+      throw err;
+    }
+
+    const session = await this.sessions.create(accountId, csrfToken, req);
+    await this.audit.record(
+      {
+        action: AUDIT_ACTIONS.SIGNUP_SUCCESS,
+        actorId: accountId,
+        entity: 'organization',
+        entityId: organizationId,
+        meta: { username, organizationName: orgName },
+      },
+      req,
+    );
+
+    return { user: { id: accountId, username }, session };
   }
 
   async logout(req: Request): Promise<{ ok: true }> {
@@ -174,8 +292,15 @@ export class AuthService {
       });
       if (session && !session.revokedAt) {
         await this.sessions.revokeByToken(token);
+        const organizationId = await this.orgOf(session.ownerId);
         await this.audit.record(
-          { action: AUDIT_ACTIONS.LOGOUT, actorId: session.ownerId, entity: 'session', entityId: session.id },
+          {
+            action: AUDIT_ACTIONS.LOGOUT,
+            actorId: session.ownerId,
+            organizationId,
+            entity: 'session',
+            entityId: session.id,
+          },
           req,
         );
       }
@@ -256,6 +381,7 @@ export class AuthService {
       {
         action: AUDIT_ACTIONS.RECOVERY_USED,
         actorId: account.id,
+        organizationId: await this.orgOf(account.id),
         entity: 'owner_account',
         entityId: account.id,
         meta: { sessionsRevoked: true, codeRotated: true },

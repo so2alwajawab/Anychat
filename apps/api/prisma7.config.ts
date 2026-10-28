@@ -10,5 +10,8 @@ export default defineConfig({
   },
   datasource: {
     url: process.env["DATABASE_URL"],
+    // Shadow database Prisma uses to replay migrations when diffing/validating
+    // a migrations directory against the schema (dev-only convenience DB).
+    shadowDatabaseUrl: process.env["SHADOW_DATABASE_URL"],
   },
 });

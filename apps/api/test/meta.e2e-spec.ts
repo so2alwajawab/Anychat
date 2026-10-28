@@ -14,6 +14,7 @@ import {
   createTestApp,
   getCsrf,
   login,
+  seedOwner,
 } from './helpers.js';
 
 const TEST_APP_ID = '1234567890';
@@ -91,7 +92,7 @@ describe('meta connection & webhooks (e2e)', () => {
     const redis = app.get(RedisService);
     await redis.client.flushdb();
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE comment_event, post, audit_log, webhook_delivery, webhook_subscription, meta_credential, meta_connected_asset, meta_app_config, password_recovery, owner_session, owner_account, system_setting RESTART IDENTITY CASCADE',
+      'TRUNCATE TABLE comment_event, post, audit_log, webhook_delivery, webhook_subscription, meta_credential, meta_connected_asset, meta_app_config, password_recovery, owner_session, owner_account, system_setting, membership, organization RESTART IDENTITY CASCADE',
     );
     const passwordHash = await argon2.hash(TEST_PASSWORD, {
       type: argon2.argon2id,
@@ -99,7 +100,7 @@ describe('meta connection & webhooks (e2e)', () => {
       timeCost: 3,
       parallelism: 1,
     });
-    await prisma.ownerAccount.create({ data: { username: TEST_USERNAME, passwordHash } });
+    await seedOwner(prisma, { username: TEST_USERNAME, passwordHash });
     const loginRes = await login(http, jar, TEST_USERNAME, TEST_PASSWORD);
     expect(loginRes.status).toBe(200);
   });

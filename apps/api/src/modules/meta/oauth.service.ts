@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { HttpException, Injectable, Logger as NestLogger } from '@nestjs/common';
 import { API_ROUTES, ERROR_CODES, apiError, timingSafeEqualString } from '@anychat/shared';
 import { serverEnv } from '../../common/config/env.js';
+import { PrismaService } from '../../common/prisma/prisma.module.js';
 import { AuditService } from '../audit/audit.service.js';
 import { AUDIT_ACTIONS } from '../audit/audit.constants.js';
 import { AssetsService } from './assets.service.js';
@@ -31,7 +32,21 @@ export class OauthService {
     private readonly assets: AssetsService,
     private readonly subscriptions: SubscriptionsService,
     private readonly audit: AuditService,
+    private readonly prisma: PrismaService,
   ) {}
+
+  /**
+   * The OAuth callback is a public route (no tenant ALS context), so the
+   * organization the discovered assets belong to must be resolved from the
+   * initiating owner and threaded explicitly into every write.
+   */
+  private async resolveOrganizationId(ownerId: string): Promise<string | null> {
+    const membership = await this.prisma.membership.findFirst({
+      where: { userId: ownerId },
+      orderBy: { createdAt: 'asc' },
+    });
+    return membership?.organizationId ?? null;
+  }
 
   private webBase(): string {
     return serverEnv.PUBLIC_BASE_URL.replace(/\/+$/, '');
@@ -74,6 +89,20 @@ export class OauthService {
       redirectUrl: `${this.webBase()}/connections?oauth=error&code=${encodeURIComponent(codePart)}`,
     });
 
+    // Assets discovered here belong to the organization of the owner who started
+    // the OAuth flow. Resolve it up front; every write below is stamped with it.
+    const organizationId = await this.resolveOrganizationId(record.ownerId);
+    if (!organizationId) {
+      await this.audit.record({
+        action: AUDIT_ACTIONS.META_OAUTH_FAILED,
+        actorId: record.ownerId,
+        entity: 'meta_oauth',
+        outcome: 'failure',
+        meta: { reason: 'no_membership' },
+      });
+      return failRedirect('no_membership');
+    }
+
     if (!code) {
       await this.audit.record({
         action: AUDIT_ACTIONS.META_OAUTH_FAILED,
@@ -104,7 +133,7 @@ export class OauthService {
       }
 
       step = 'store_assets';
-      const counts = await this.assets.upsertDiscovered(pages, igByPage);
+      const counts = await this.assets.upsertDiscovered(organizationId, pages, igByPage);
 
       let subscriptionsOk = 0;
       let subscriptionsFailed = 0;
@@ -115,6 +144,7 @@ export class OauthService {
         try {
           const result = await this.subscriptions.subscribePage(
             asset.id,
+            organizationId,
             page.id,
             page.accessToken,
             [...PAGE_WEBHOOK_FIELDS],
@@ -135,6 +165,7 @@ export class OauthService {
             try {
               await this.subscriptions.recordInstagramDashboard(
                 igAsset.id,
+                organizationId,
                 [...IG_WEBHOOK_FIELDS],
                 record.ownerId,
               );
@@ -149,6 +180,7 @@ export class OauthService {
       await this.audit.record({
         action: AUDIT_ACTIONS.META_OAUTH_COMPLETED,
         actorId: record.ownerId,
+        organizationId,
         entity: 'meta_oauth',
         meta: {
           pages: counts.facebook,

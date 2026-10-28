@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { WorkflowsService, createDefaultDefinition } from './workflows.service.js';
 import type { PrismaService } from '../../common/prisma/prisma.module.js';
 import type { AuditService } from '../audit/audit.service.js';
+import { runWithOrg } from '../../common/tenancy/org-context.js';
 
 describe('WorkflowsService (Gate G4 Unit Tests)', () => {
   let service: WorkflowsService;
@@ -49,9 +50,17 @@ describe('WorkflowsService (Gate G4 Unit Tests)', () => {
       lockVersion: 1,
     });
 
-    const result = await service.create({ name: 'مسار تجريبي' }, 'owner-1');
+    // create() stamps the active tenant; unit tests enter the same request
+    // context the OrgContextInterceptor would set up in production.
+    const result = await runWithOrg('org-test', () =>
+      service.create({ name: 'مسار تجريبي' }, 'owner-1'),
+    );
     expect(result.id).toBe('wf-1');
-    expect(mockPrisma.workflow.create).toHaveBeenCalled();
+    expect(mockPrisma.workflow.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ organizationId: 'org-test' }),
+      }),
+    );
     expect(mockAudit.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'workflow.created' }),
     );
