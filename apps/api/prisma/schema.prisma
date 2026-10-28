@@ -201,6 +201,7 @@ model CommentEvent {
 
   asset MetaConnectedAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
   post  Post?              @relation(fields: [postId], references: [id], onDelete: SetNull)
+  runs  ExecutionRun[]
 
   @@index([assetId, sourceCreatedAt])
   @@index([postId])
@@ -237,6 +238,7 @@ model WorkflowVersion {
   createdAt     DateTime  @default(now()) @map("created_at")
 
   workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  runs     ExecutionRun[]
 
   @@unique([workflowId, version])
   @@index([workflowId, state])
@@ -253,4 +255,73 @@ model MessageTemplate {
   updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@map("message_template")
+}
+
+model ExecutionRun {
+  id                String    @id @default(uuid()) @db.Uuid
+  workflowVersionId String    @map("workflow_version_id") @db.Uuid
+  commentEventId    String    @map("comment_event_id") @db.Uuid
+  status            String    @default("pending")
+  skipReason        String?   @map("skip_reason")
+  contextSnapshot   Json?     @map("context_snapshot")
+  startedAt         DateTime  @default(now()) @map("started_at")
+  finishedAt        DateTime? @map("finished_at")
+  attempt           Int       @default(1)
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  workflowVersion WorkflowVersion  @relation(fields: [workflowVersionId], references: [id], onDelete: Restrict)
+  commentEvent    CommentEvent     @relation(fields: [commentEventId], references: [id], onDelete: Cascade)
+  nodeExecutions  NodeExecution[]
+  outboundActions OutboundAction[]
+
+  @@unique([workflowVersionId, commentEventId])
+  @@index([workflowVersionId, startedAt])
+  @@index([status])
+  @@index([commentEventId])
+  @@map("execution_run")
+}
+
+model NodeExecution {
+  id            String    @id @default(uuid()) @db.Uuid
+  runId         String    @map("run_id") @db.Uuid
+  nodeId        String    @map("node_id")
+  nodeType      String    @map("node_type")
+  status        String    @default("executed")
+  inputSummary  Json?     @map("input_summary")
+  outputSummary Json?     @map("output_summary")
+  errorCode     String?   @map("error_code")
+  errorMessage  String?   @map("error_message")
+  startedAt     DateTime  @default(now()) @map("started_at")
+  finishedAt    DateTime? @map("finished_at")
+
+  run ExecutionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@map("node_execution")
+}
+
+model OutboundAction {
+  id               String    @id @default(uuid()) @db.Uuid
+  runId            String    @map("run_id") @db.Uuid
+  actionType       String    @map("action_type")
+  idempotencyKey   String    @unique @map("idempotency_key")
+  targetCommentId  String    @map("target_comment_id")
+  renderedMessage  String    @map("rendered_message")
+  status           String    @default("pending")
+  remoteMessageId  String?   @map("remote_message_id")
+  fencingToken     String?   @map("fencing_token")
+  attemptCount     Int       @default(0) @map("attempt_count")
+  claimedAt        DateTime? @map("claimed_at")
+  sentAt           DateTime? @map("sent_at")
+  lastErrorCode    String?   @map("last_error_code")
+  lastErrorMessage String?   @map("last_error_message")
+  reconciledAt     DateTime? @map("reconciled_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  run ExecutionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([targetCommentId])
+  @@index([runId])
+  @@map("outbound_action")
 }

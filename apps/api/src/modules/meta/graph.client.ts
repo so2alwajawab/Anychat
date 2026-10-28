@@ -89,6 +89,25 @@ export abstract class GraphClient {
     pageToken: string,
     limit?: number,
   ): Promise<GraphComment[]>;
+
+  abstract publishPageCommentReply(
+    commentId: string,
+    pageToken: string,
+    message: string,
+  ): Promise<{ id: string }>;
+
+  abstract publishInstagramCommentReply(
+    commentId: string,
+    pageToken: string,
+    message: string,
+  ): Promise<{ id: string }>;
+
+  abstract checkCommentReplyExists(
+    platform: 'facebook' | 'instagram',
+    commentId: string,
+    pageToken: string,
+    replyId: string,
+  ): Promise<boolean>;
 }
 
 type GraphParams = Record<string, string | undefined>;
@@ -340,5 +359,55 @@ export class HttpGraphClient extends GraphClient {
         authorUsername: item.username ? graphString(item.username) : from?.username ? graphString(from.username) : undefined,
       };
     });
+  }
+
+  async publishPageCommentReply(
+    commentId: string,
+    pageToken: string,
+    message: string,
+  ): Promise<{ id: string }> {
+    const cfg = await this.config.requireConfig();
+    const body = await this.post(`/${commentId}/comments`, {
+      message,
+      access_token: pageToken,
+      ...(await this.proof(pageToken, cfg)),
+    });
+    return { id: graphString(body.id) };
+  }
+
+  async publishInstagramCommentReply(
+    commentId: string,
+    pageToken: string,
+    message: string,
+  ): Promise<{ id: string }> {
+    const cfg = await this.config.requireConfig();
+    const body = await this.post(`/${commentId}/replies`, {
+      message,
+      access_token: pageToken,
+      ...(await this.proof(pageToken, cfg)),
+    });
+    return { id: graphString(body.id) };
+  }
+
+  async checkCommentReplyExists(
+    platform: 'facebook' | 'instagram',
+    commentId: string,
+    pageToken: string,
+    replyId: string,
+  ): Promise<boolean> {
+    const cfg = await this.config.requireConfig();
+    try {
+      const endpoint = platform === 'instagram' ? `/${commentId}/replies` : `/${commentId}/comments`;
+      const body = await this.get(endpoint, {
+        fields: 'id',
+        limit: '50',
+        access_token: pageToken,
+        ...(await this.proof(pageToken, cfg)),
+      });
+      const data = Array.isArray(body.data) ? (body.data as Record<string, unknown>[]) : [];
+      return data.some((item) => graphString(item.id) === replyId);
+    } catch {
+      return false;
+    }
   }
 }

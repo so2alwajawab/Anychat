@@ -29,6 +29,13 @@ export const AUDIT_ACTIONS = {
   TEMPLATE_CREATED: 'template.created',
   TEMPLATE_UPDATED: 'template.updated',
   TEMPLATE_DELETED: 'template.deleted',
+  EXECUTION_RUN_STARTED: 'execution.run.started',
+  EXECUTION_RUN_COMPLETED: 'execution.run.completed',
+  EXECUTION_RUN_SKIPPED: 'execution.run.skipped',
+  EXECUTION_RUN_FAILED: 'execution.run.failed',
+  OUTBOUND_ACTION_SENT: 'outbound.action.sent',
+  OUTBOUND_ACTION_FAILED: 'outbound.action.failed',
+  OUTBOUND_ACTION_RECONCILED: 'outbound.action.reconciled',
 } as const;
 
 export interface AuditEntry {

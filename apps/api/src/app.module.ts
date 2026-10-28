@@ -15,6 +15,7 @@ import { MetaModule } from './modules/meta/meta.module.js';
 import { ContentModule } from './modules/content/content.module.js';
 import { TemplatesModule } from './modules/templates/templates.module.js';
 import { WorkflowsModule } from './modules/workflows/workflows.module.js';
+import { ExecutionModule } from './modules/execution/execution.module.js';
 
 const isDev = serverEnv.NODE_ENV === 'development';
 
@@ -54,6 +55,7 @@ const isDev = serverEnv.NODE_ENV === 'development';
     ContentModule,
     TemplatesModule,
     WorkflowsModule,
+    ExecutionModule,
   ],
   providers: [
     { provide: APP_PIPE, useValue: new ValidationPipe({ whitelist: true, transform: true }) },

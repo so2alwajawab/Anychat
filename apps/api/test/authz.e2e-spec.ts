@@ -95,6 +95,9 @@ const EXPECTED_ROUTES: RouteInfo[] = [
   { httpMethod: 'DELETE', path: '/api/v1/workflows/:id', isPublic: false },
   { httpMethod: 'GET', path: '/api/v1/workflows/:id/versions', isPublic: false },
   { httpMethod: 'POST', path: '/api/v1/workflows/:id/test-run', isPublic: false },
+  { httpMethod: 'GET', path: '/api/v1/runs', isPublic: false },
+  { httpMethod: 'GET', path: '/api/v1/runs/:id', isPublic: false },
+  { httpMethod: 'POST', path: '/api/v1/runs/:id/retry', isPublic: false },
   { httpMethod: 'GET', path: '/api/v1/webhooks/meta', isPublic: true },
   { httpMethod: 'POST', path: '/api/v1/webhooks/meta', isPublic: true },
 ];

@@ -23,8 +23,13 @@ function asString(val: unknown, fallback = ''): string {
 @Injectable()
 export class NormalizationService {
   private readonly logger = new Logger(NormalizationService.name);
+  private commentHooks: Array<(commentEventId: string) => Promise<void>> = [];
 
   constructor(private readonly prisma: PrismaService) {}
+
+  registerCommentHook(hook: (commentEventId: string) => Promise<void>): void {
+    this.commentHooks.push(hook);
+  }
 
   /** Extract normalized comment entries from an arbitrary webhook entry. */
   extractComments(objectType: string, entry: Record<string, unknown>): NormalizedComment[] {
@@ -176,7 +181,7 @@ export class NormalizationService {
 
     // 3. Insert CommentEvent idempotently
     try {
-      await this.prisma.commentEvent.create({
+      const created = await this.prisma.commentEvent.create({
         data: {
           assetId: asset.id,
           postId: postRecordId,
@@ -192,6 +197,13 @@ export class NormalizationService {
           direction: 'inbound',
         },
       });
+
+      for (const hook of this.commentHooks) {
+        hook(created.id).catch((err: unknown) => {
+          this.logger.error(`Error in comment hook: ${(err as Error).message}`);
+        });
+      }
+
       return true;
     } catch (err: unknown) {
       // Unique constraint violation on dedupeKey means already inserted

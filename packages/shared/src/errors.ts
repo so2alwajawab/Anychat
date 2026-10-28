@@ -21,6 +21,8 @@ export const ERROR_CODES = {
   ASSET_NOT_FOUND: 'ASSET_NOT_FOUND',
   SYNC_FAILED: 'SYNC_FAILED',
   CONFLICT: 'CONFLICT',
+  RUN_NOT_FOUND: 'RUN_NOT_FOUND',
+  RUN_NOT_RETRYABLE: 'RUN_NOT_RETRYABLE',
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
@@ -48,6 +50,8 @@ const AR: Record<ErrorCode, string> = {
   ASSET_NOT_FOUND: 'الأصل المطلوب غير موجود.',
   SYNC_FAILED: 'فشلت عملية المزامنة من خوادم ميتا.',
   CONFLICT: 'تعارض في حفظ التعديل: تم تعديل السجل من جلسة أخرى، يرجى إعادة تحميل الصفحة.',
+  RUN_NOT_FOUND: 'عملية التنفيذ غير موجودة.',
+  RUN_NOT_RETRYABLE: 'لا يمكن إعادة محاولة هذه العملية.',
 };
 
 export interface ApiErrorBody {
