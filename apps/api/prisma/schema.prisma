@@ -16,6 +16,10 @@ model OwnerAccount {
   passwordChangedAt DateTime  @default(now()) @map("password_changed_at")
   lockedUntil       DateTime? @map("locked_until")
   failedLoginCount  Int       @default(0) @map("failed_login_count")
+  /// Platform-wide role (Phase 3): 'member' (default) or 'admin'. This is NOT
+  /// the per-organization Membership.role — it gates the cross-tenant admin
+  /// dashboard. Bootstrapped from PLATFORM_ADMIN_USERNAMES on API start.
+  platformRole      String    @default("member") @map("platform_role")
   createdAt         DateTime  @default(now()) @map("created_at")
 
   sessions      OwnerSession[]

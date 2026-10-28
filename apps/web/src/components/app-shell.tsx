@@ -3,7 +3,14 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { APP_NAME, NAV_ITEMS, UI, type NavSlug } from "@anychat/shared";
+import {
+  ADMIN_NAV_ITEMS,
+  APP_NAME,
+  NAV_ITEMS,
+  UI,
+  type AdminNavSlug,
+  type NavSlug,
+} from "@anychat/shared";
 import { postJson, type SessionUser } from "@/lib/api";
 
 /* eslint-disable @next/next/no-img-element -- static local brand assets, no runtime optimization needed */
@@ -76,6 +83,30 @@ function NavIcon({ slug }: { slug: NavSlug }) {
   );
 }
 
+const ADMIN_ICONS: Record<AdminNavSlug, ReactNode> = {
+  admin: (
+    <>
+      <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" />
+      <path d="M9.5 12l1.8 1.8 3.4-3.6" />
+    </>
+  ),
+};
+
+function AdminNavIcon({ slug }: { slug: AdminNavSlug }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-5 w-5 shrink-0 fill-none stroke-current"
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {ADMIN_ICONS[slug]}
+    </svg>
+  );
+}
+
 function BrandHeader() {
   return (
     <div className="flex items-center gap-2.5 px-5 py-5">
@@ -127,6 +158,34 @@ function SidebarNav({
             </Link>
           );
         })}
+
+        {user.platformAdmin && (
+          <>
+            <div className="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-sidebar-muted">
+              {UI.admin.navLabel}
+            </div>
+            {ADMIN_NAV_ITEMS.map((item) => {
+              const active =
+                pathname === item.href || pathname.startsWith(`${item.href}/`);
+              return (
+                <Link
+                  key={item.slug}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  onClick={onNavigate}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+                    active
+                      ? "bg-sidebar-active text-white"
+                      : "text-sidebar-foreground hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <AdminNavIcon slug={item.slug} />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </>
+        )}
       </nav>
 
       <div className="border-t border-white/10 px-4 py-4">

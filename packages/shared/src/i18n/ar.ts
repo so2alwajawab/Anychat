@@ -14,6 +14,13 @@ export const NAV_ITEMS = [
 
 export type NavSlug = (typeof NAV_ITEMS)[number]['slug'];
 
+/** Platform-admin navigation (Phase 3). Shown only to platform admins. */
+export const ADMIN_NAV_ITEMS = [
+  { slug: 'admin', href: '/admin', label: 'لوحة الإدارة' },
+] as const;
+
+export type AdminNavSlug = (typeof ADMIN_NAV_ITEMS)[number]['slug'];
+
 export const UI = {
   login: {
     title: 'تسجيل الدخول',
@@ -277,5 +284,69 @@ export const UI = {
     },
     loading: 'جارٍ التحميل…',
     error: 'تعذّر تحميل السجلات.',
+  },
+  admin: {
+    navLabel: 'الإدارة',
+    unauthorized: 'هذه الصفحة متاحة لمسؤول المنصة فقط.',
+    backToDashboard: 'العودة إلى لوحة التحكم',
+    retry: 'إعادة المحاولة',
+    overview: {
+      title: 'لوحة إدارة المنصة',
+      subtitle: 'نظرة عامة على المؤسسات والمستخدمين ونشاط المنصة.',
+      orgs: 'المؤسسات',
+      orgsOnboarded: 'مؤسسة مكتملة التهيئة',
+      owners: 'أصحاب الحسابات',
+      assets: 'حسابات المتصلّة',
+      comments30: 'تعليقات (30 يوم)',
+      runs30: 'عمليات تنفيذ (30 يوم)',
+      runSuccess: 'نسبة نجاح العمليات',
+      publishedWorkflows: 'مسارات منشورة',
+      commentsTrend: 'التعليقات اليومية — آخر 14 يوماً',
+      latestOrgs: 'أحدث المؤسسات',
+      loading: 'جارٍ تحميل مؤشرات المنصة…',
+      error: 'تعذّر تحميل مؤشرات المنصة.',
+    },
+    orgs: {
+      title: 'المؤسسات',
+      subtitle: 'جميع مؤسسات المنصة مع أصحاب الحسابات ومؤشرات النشاط.',
+      search: 'ابحث باسم المؤسسة أو المالك…',
+      searchBtn: 'بحث',
+      name: 'المؤسسة',
+      owners: 'المالك',
+      status: 'الحالة',
+      onboarding: 'التهيئة',
+      createdAt: 'تاريخ الإنشاء',
+      actions: 'التفاصيل',
+      empty: 'لا توجد مؤسسات مطابقة.',
+      prev: 'السابق',
+      next: 'التالي',
+      pageInfo: 'صفحة {page} من {pages}',
+      loading: 'جارٍ تحميل المؤسسات…',
+      error: 'تعذّر تحميل المؤسسات.',
+      statusActive: 'نشطة',
+      statusOther: 'موقوفة',
+      onboardingDone: 'مكتملة',
+      onboardingPending: 'قيد التهيئة',
+    },
+    detail: {
+      back: 'رجوع إلى المؤسسات',
+      info: 'بيانات المؤسسة',
+      members: 'أصحاب الحسابات',
+      assets: 'الحسابات المتصلة',
+      workflows: 'مسارات الأتمتة',
+      templates: 'القوالب',
+      stats: 'النشاط',
+      comments: 'تعليقات',
+      posts: 'منشورات',
+      runs: 'عمليات تنفيذ',
+      recentAudit: 'آخر عمليات التدقيق',
+      noMembers: 'لا يوجد أعضاء.',
+      noAssets: 'لا توجد حسابات متصلة.',
+      noWorkflows: 'لا توجد مسارات أتمتة.',
+      noTemplates: 'لا توجد قوالب.',
+      noAudit: 'لا توجد سجلات تدقيق.',
+      loading: 'جارٍ تحميل بيانات المؤسسة…',
+      error: 'تعذّر تحميل بيانات المؤسسة.',
+    },
   },
 } as const;

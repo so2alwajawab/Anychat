@@ -19,6 +19,8 @@ const ROUTES = [
   'logs',
   'settings',
   'help',
+  'admin',
+  'admin/orgs',
 ];
 
 const failures = [];

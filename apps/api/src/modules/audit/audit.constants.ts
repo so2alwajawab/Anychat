@@ -41,6 +41,9 @@ export const AUDIT_ACTIONS = {
   OUTBOUND_ACTION_FAILED: 'outbound.action.failed',
   OUTBOUND_ACTION_RECONCILED: 'outbound.action.reconciled',
   KEY_ROTATED: 'crypto.key.rotated',
+  ADMIN_ACCESS_DENIED: 'admin.access.denied',
+  ADMIN_ORG_VIEWED: 'admin.org.viewed',
+  PLATFORM_ADMIN_PROMOTED: 'admin.platform.promoted',
 } as const;
 
 export interface AuditEntry {

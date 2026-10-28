@@ -109,6 +109,7 @@ export class AdminAuthGuard implements CanActivate {
       ownerId: session.ownerId,
       username: session.owner.username,
       csrfTokenHash: session.csrfTokenHash,
+      platformAdmin: session.owner.platformRole === 'admin',
       createdAt: session.createdAt,
       absoluteExpiresAt: session.absoluteExpiresAt,
     };

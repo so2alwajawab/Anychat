@@ -80,6 +80,8 @@ export async function postJson<T>(path: string, body: unknown): Promise<T> {
 export interface SessionUser {
   id: string;
   username: string;
+  /** Platform-admin flag (Phase 3): unlocks the cross-tenant /admin area. */
+  platformAdmin: boolean;
 }
 
 export async function getSession(): Promise<{ user: SessionUser } | null> {

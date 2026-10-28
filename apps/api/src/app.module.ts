@@ -7,6 +7,7 @@ import { PrismaModule } from './common/prisma/prisma.module.js';
 import { RedisModule } from './common/redis/redis.module.js';
 import { AdminAuthGuard } from './common/guards/admin-auth.guard.js';
 import { CsrfGuard } from './common/guards/csrf.guard.js';
+import { PlatformAdminGuard } from './common/guards/platform-admin.guard.js';
 import { OrgContextInterceptor } from './common/interceptors/org-context.interceptor.js';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 import { serverEnv } from './common/config/env.js';
@@ -19,6 +20,7 @@ import { TemplatesModule } from './modules/templates/templates.module.js';
 import { WorkflowsModule } from './modules/workflows/workflows.module.js';
 import { ExecutionModule } from './modules/execution/execution.module.js';
 import { OnboardingModule } from './modules/onboarding/onboarding.module.js';
+import { AdminModule } from './modules/admin/admin.module.js';
 
 const isDev = serverEnv.NODE_ENV === 'development';
 
@@ -63,12 +65,15 @@ const isDev = serverEnv.NODE_ENV === 'development';
     WorkflowsModule,
     ExecutionModule,
     OnboardingModule,
+    AdminModule,
   ],
   providers: [
     { provide: APP_PIPE, useValue: new ValidationPipe({ whitelist: true, transform: true }) },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_GUARD, useClass: AdminAuthGuard },
     { provide: APP_GUARD, useClass: CsrfGuard },
+    // Runs after AdminAuthGuard (registration order), so req.session exists.
+    { provide: APP_GUARD, useClass: PlatformAdminGuard },
     { provide: APP_INTERCEPTOR, useClass: OrgContextInterceptor },
   ],
 })

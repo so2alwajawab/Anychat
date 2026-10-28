@@ -16,6 +16,11 @@ export const serverEnvSchema = z.object({
   META_APP_SECRET: z.string().optional(),
   META_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
   META_GRAPH_VERSION: z.string().default('v26.0'),
+  /**
+   * Comma-separated list of owner usernames promoted to platform admin on API
+   * boot (Phase 3: the platform-admin dashboard). Empty/unset = nobody.
+   */
+  PLATFORM_ADMIN_USERNAMES: z.string().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

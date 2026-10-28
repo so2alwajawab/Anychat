@@ -76,7 +76,11 @@ export class AuthController {
   @Get('session')
   session(@Req() req: Request) {
     return {
-      user: { id: req.session?.ownerId, username: req.session?.username },
+      user: {
+        id: req.session?.ownerId,
+        username: req.session?.username,
+        platformAdmin: req.session?.platformAdmin ?? false,
+      },
       organizationId: req.organizationId,
     };
   }

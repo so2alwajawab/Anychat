@@ -109,6 +109,9 @@ const EXPECTED_ROUTES: RouteInfo[] = [
   { httpMethod: 'GET', path: '/api/v1/runs', isPublic: false },
   { httpMethod: 'GET', path: '/api/v1/runs/:id', isPublic: false },
   { httpMethod: 'POST', path: '/api/v1/runs/:id/retry', isPublic: false },
+  { httpMethod: 'GET', path: '/api/v1/admin/overview', isPublic: false },
+  { httpMethod: 'GET', path: '/api/v1/admin/orgs', isPublic: false },
+  { httpMethod: 'GET', path: '/api/v1/admin/orgs/:id', isPublic: false },
   { httpMethod: 'GET', path: '/api/v1/webhooks/meta', isPublic: true },
   { httpMethod: 'POST', path: '/api/v1/webhooks/meta', isPublic: true },
 ];
@@ -135,6 +138,9 @@ function allowedStatuses(route: RouteInfo): number[] {
   // The matrix sends empty bodies everywhere; DTO validation rejecting one with
   // 400 is correct behaviour, not an authorization defect.
   if (route.httpMethod !== 'GET') allowed.push(400);
+  // Platform-admin routes answer 403 for the matrix's ordinary (non-admin)
+  // session — Phase 3 authorization working as designed.
+  if (route.path.startsWith('/api/v1/admin/')) allowed.push(403);
   return allowed;
 }
 

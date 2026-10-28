@@ -94,6 +94,11 @@ describe('response shape (e2e, Gate G1.7)', () => {
       .set('Cookie', jar.header())
       .expect(200);
     expect(findSensitiveKeys(sessionRes.body, '$')).toEqual([]);
+    expect(Object.keys(sessionRes.body.user).sort()).toEqual([
+      'id',
+      'platformAdmin',
+      'username',
+    ]);
 
     const auditRes = await http
       .get('/api/v1/audit?limit=10')

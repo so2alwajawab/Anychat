@@ -5,6 +5,8 @@ export interface AuthenticatedSession {
   ownerId: string;
   username: string;
   csrfTokenHash: string | null;
+  /** Platform-wide admin flag (Phase 3): gates the cross-tenant /admin API. */
+  platformAdmin: boolean;
   createdAt: Date;
   absoluteExpiresAt: Date;
 }
