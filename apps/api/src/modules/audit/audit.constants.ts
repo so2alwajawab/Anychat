@@ -36,6 +36,7 @@ export const AUDIT_ACTIONS = {
   OUTBOUND_ACTION_SENT: 'outbound.action.sent',
   OUTBOUND_ACTION_FAILED: 'outbound.action.failed',
   OUTBOUND_ACTION_RECONCILED: 'outbound.action.reconciled',
+  KEY_ROTATED: 'crypto.key.rotated',
 } as const;
 
 export interface AuditEntry {

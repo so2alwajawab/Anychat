@@ -289,7 +289,13 @@ function LogsContent() {
                         r.outboundActions.map((act) => (
                           <div key={act.id} className="flex items-center gap-1 text-[11px]">
                             <span className={act.status === "sent" ? "text-emerald-600 font-semibold" : "text-amber-600"}>
-                              {act.status === "sent" ? "تم الرد ✓" : act.status === "failed" ? "فشل الرد" : act.status}
+                              {act.status === "sent"
+                                ? (act.actionType === "private_reply" ? "رسالة خاصة ✓" : "تم الرد ✓")
+                                : act.status === "failed"
+                                ? "فشل الإرسال"
+                                : act.status === "skipped"
+                                ? "تم التجاوز"
+                                : act.status}
                             </span>
                             {act.remoteMessageId && (
                               <span className="text-slate-400 font-mono text-[10px]" dir="ltr">
@@ -490,7 +496,14 @@ function LogsContent() {
                       {runDetail.outboundActions.map((act) => (
                         <div key={act.id} className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-xs text-emerald-900">
                           <div className="flex items-center justify-between font-semibold mb-1">
-                            <span>نوع الرد: {act.actionType === "public_reply" ? "رد عام على التعليق" : act.actionType}</span>
+                            <span>
+                              نوع الإجراء:{" "}
+                              {act.actionType === "public_reply"
+                                ? "رد عام على التعليق"
+                                : act.actionType === "private_reply"
+                                ? "رسالة خاصة (رد خاص)"
+                                : act.actionType}
+                            </span>
                             <span className="rounded bg-emerald-100 px-2 py-0.5 text-emerald-800 text-[10px]">
                               {act.status}
                             </span>
@@ -530,7 +543,7 @@ function LogsContent() {
                             }`} />
                             <div className="flex items-center justify-between text-xs font-semibold">
                               <span className="text-slate-800">
-                                خطوة {idx + 1}: {step.nodeType}
+                                خطوة {idx + 1}: {nodeTypeLabel(step.nodeType)}
                               </span>
                               <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                                 step.status === "passed" || step.status === "executed"
@@ -565,6 +578,27 @@ function LogsContent() {
       )}
     </div>
   );
+}
+
+function nodeTypeLabel(type: string): string {
+  switch (type) {
+    case "trigger.comment":
+      return "مشغل البداية (وصول تعليق)";
+    case "condition.text":
+      return "شرط فحص النص";
+    case "condition.asset_post":
+      return "شرط فحص الصفحة والمنشور";
+    case "action.public_reply":
+      return "رد عام على التعليق";
+    case "action.private_reply":
+      return "رد في رسالة خاصة";
+    case "action.use_template":
+      return "استخدام قالب جاهز";
+    case "action.stop":
+      return "إيقاف المسار";
+    default:
+      return type;
+  }
 }
 
 export default function LogsPage() {

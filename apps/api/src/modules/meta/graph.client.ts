@@ -102,6 +102,20 @@ export abstract class GraphClient {
     message: string,
   ): Promise<{ id: string }>;
 
+  abstract sendPagePrivateReply(
+    pageId: string,
+    pageToken: string,
+    commentId: string,
+    message: string,
+  ): Promise<{ id: string }>;
+
+  abstract sendInstagramPrivateReply(
+    pageIdOrIgId: string,
+    pageToken: string,
+    commentId: string,
+    message: string,
+  ): Promise<{ id: string }>;
+
   abstract checkCommentReplyExists(
     platform: 'facebook' | 'instagram',
     commentId: string,
@@ -387,6 +401,39 @@ export class HttpGraphClient extends GraphClient {
       ...(await this.proof(pageToken, cfg)),
     });
     return { id: graphString(body.id) };
+  }
+
+  async sendPagePrivateReply(
+    pageId: string,
+    pageToken: string,
+    commentId: string,
+    message: string,
+  ): Promise<{ id: string }> {
+    const cfg = await this.config.requireConfig();
+    const body = await this.post(`/${pageId}/messages`, {
+      recipient: JSON.stringify({ comment_id: commentId }),
+      message: JSON.stringify({ text: message }),
+      messaging_type: 'RESPONSE',
+      access_token: pageToken,
+      ...(await this.proof(pageToken, cfg)),
+    });
+    return { id: graphString(body.message_id ?? body.id) };
+  }
+
+  async sendInstagramPrivateReply(
+    pageIdOrIgId: string,
+    pageToken: string,
+    commentId: string,
+    message: string,
+  ): Promise<{ id: string }> {
+    const cfg = await this.config.requireConfig();
+    const body = await this.post(`/${pageIdOrIgId}/messages`, {
+      recipient: JSON.stringify({ comment_id: commentId }),
+      message: JSON.stringify({ text: message }),
+      access_token: pageToken,
+      ...(await this.proof(pageToken, cfg)),
+    });
+    return { id: graphString(body.message_id ?? body.id) };
   }
 
   async checkCommentReplyExists(

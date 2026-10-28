@@ -28,6 +28,12 @@ describe('ExecutionService (Gate G5 Requirements)', () => {
         remoteMessageId: 'rem-123',
         status: 'sent',
       }),
+      executePrivateReply: vi.fn().mockResolvedValue({
+        ok: true,
+        actionId: 'act-priv-1',
+        remoteMessageId: 'mid.fb-123',
+        status: 'sent',
+      }),
     };
 
     mockAudit = {
@@ -158,6 +164,64 @@ describe('ExecutionService (Gate G5 Requirements)', () => {
           nodeId: 'node-reply',
           status: 'skipped',
           errorCode: 'CAN_COMMENT_FALSE',
+        }),
+      }),
+    );
+  });
+
+  it('executes action.private_reply node and substitutes template variables (Gate G6)', async () => {
+    const workflowDef = {
+      schemaVersion: 1,
+      nodes: [
+        { id: 'node-trig', type: 'trigger.comment', position: { x: 0, y: 0 }, data: {} },
+        {
+          id: 'node-priv',
+          type: 'action.private_reply',
+          position: { x: 0, y: 100 },
+          data: { message: 'مرحباً {{commenter_name}}، تفاصيل المنشور {{post.id}} في الخاص' },
+        },
+      ],
+      edges: [{ id: 'e1', source: 'node-trig', target: 'node-priv' }],
+    };
+
+    const commentDate = new Date();
+    mockPrisma.executionRun.findUnique.mockResolvedValue({
+      id: 'run-priv',
+      status: 'pending',
+      workflowVersion: {
+        version: 1,
+        definition: workflowDef,
+        workflow: { id: 'wf-priv', name: 'أتمتة الرد الخاص' },
+      },
+      commentEvent: {
+        id: 'c-priv',
+        platform: 'facebook',
+        externalCommentId: 'fb-c-priv-1',
+        text: 'أريد معرفة المزيد',
+        authorUsername: 'يوسف',
+        sourceCreatedAt: commentDate,
+        assetId: 'asset-1',
+        asset: { id: 'asset-1', displayName: 'Echoes' },
+        post: { id: 'post-99', externalId: 'ext-post-99', isEligibleForReply: true },
+      },
+    });
+
+    await service.executeRun('run-priv');
+
+    expect(mockOutbound.executePrivateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: 'run-priv',
+        platform: 'facebook',
+        targetCommentId: 'fb-c-priv-1',
+        sourceCreatedAt: commentDate,
+        renderedMessage: 'مرحباً يوسف، تفاصيل المنشور ext-post-99 في الخاص',
+      }),
+    );
+    expect(mockPrisma.nodeExecution.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          nodeId: 'node-priv',
+          status: 'executed',
         }),
       }),
     );

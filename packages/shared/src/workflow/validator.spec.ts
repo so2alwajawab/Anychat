@@ -333,4 +333,22 @@ describe('Workflow Validator (Gate G4 Requirements - 15+ Negative Cases)', () =>
     expect(res.valid).toBe(false);
     expect(res.errors.some((e) => e.message.includes('تكرار معرّف العقدة'))).toBe(true);
   });
+
+  // Gate G6: Accepts valid allowed variables in private reply and public reply
+  it('21. accepts allow-listed variables and aliases (Gate G6)', () => {
+    const res = validateWorkflowDefinition({
+      nodes: [
+        { id: 't1', type: 'trigger.comment', position: { x: 0, y: 0 }, data: {} },
+        {
+          id: 'a1',
+          type: 'action.private_reply',
+          position: { x: 0, y: 100 },
+          data: { message: 'مرحباً {{commenter_name}} بخصوص {{comment_text}} في {{page_name}} بتاريخ {{current_date}}' },
+        },
+      ],
+      edges: [{ id: 'e1', source: 't1', target: 'a1' }],
+    });
+    expect(res.valid).toBe(true);
+    expect(res.errors).toHaveLength(0);
+  });
 });

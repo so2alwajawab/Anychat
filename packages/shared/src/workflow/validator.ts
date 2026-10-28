@@ -255,7 +255,16 @@ export function validateWorkflowDefinition(
 
       case 'action.private_reply': {
         const message = data.message;
-        if (!message || typeof message !== 'string' || message.trim().length === 0) {
+        const templateId = data.templateId;
+        if (templateId && typeof templateId === 'string') {
+          if (options?.availableTemplateIds && !options.availableTemplateIds.includes(templateId)) {
+            errors.push({
+              nodeId: node.id,
+              field: 'templateId',
+              message: `القالب المحدد في العقدة (${node.id}) غير موجود في قائمة القوالب`,
+            });
+          }
+        } else if (!message || typeof message !== 'string' || message.trim().length === 0) {
           errors.push({
             nodeId: node.id,
             field: 'message',

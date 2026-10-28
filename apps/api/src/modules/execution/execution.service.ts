@@ -80,12 +80,20 @@ export class ExecutionService {
       },
     });
 
-    // Variable context for template substitution
+    // Variable context for template substitution (both object notation and aliases)
     const variableContext: Record<string, string> = {
       commenter_name: comment.authorUsername || 'عزيزي المتابع',
       comment_text: comment.text || '',
       page_name: comment.asset.displayName || 'الصفحة',
       current_date: new Date().toLocaleDateString('ar-EG'),
+      'comment.id': comment.externalCommentId,
+      'comment.text': comment.text || '',
+      'comment.created_time': comment.sourceCreatedAt ? new Date(comment.sourceCreatedAt).toISOString() : '',
+      'post.id': comment.post?.externalId || '',
+      'post.permalink': comment.post?.permalink || '',
+      'asset.name': comment.asset.displayName || '',
+      'workflow.name': wf.name,
+      'now.date': new Date().toLocaleDateString('ar-EG'),
     };
 
     let currentId = trigger.id;
@@ -212,6 +220,53 @@ export class ExecutionService {
           assetId: comment.assetId,
           platform: comment.platform as 'facebook' | 'instagram',
           targetCommentId: comment.externalCommentId,
+          renderedMessage: rendered,
+        });
+
+        await this.prisma.nodeExecution.create({
+          data: {
+            runId,
+            nodeId: nextNode.id,
+            nodeType: nextNode.type,
+            status: outboundResult.ok ? 'executed' : outboundResult.status,
+            inputSummary: { renderedMessage: rendered, targetCommentId: comment.externalCommentId },
+            outputSummary: {
+              actionId: outboundResult.actionId,
+              remoteMessageId: outboundResult.remoteMessageId,
+              status: outboundResult.status,
+            },
+            errorCode: outboundResult.errorCode,
+            errorMessage: outboundResult.errorMessage,
+            startedAt: stepStart,
+            finishedAt: new Date(),
+          },
+        });
+
+        if (!outboundResult.ok && outboundResult.status === 'failed') {
+          runFailed = true;
+          keepGoing = false;
+          break;
+        }
+      } else if (nextNode.type === 'action.private_reply') {
+        let rawMessage = '';
+        const nodeData = (nextNode.data ?? {}) as { message?: string; templateId?: string };
+        if (nodeData.templateId) {
+          const tmpl = await this.prisma.messageTemplate.findUnique({
+            where: { id: nodeData.templateId },
+          });
+          rawMessage = tmpl?.body || '';
+        } else {
+          rawMessage = nodeData.message || '';
+        }
+
+        const rendered = renderVariables(rawMessage, variableContext);
+
+        const outboundResult = await this.outbound.executePrivateReply({
+          runId,
+          assetId: comment.assetId,
+          platform: comment.platform as 'facebook' | 'instagram',
+          targetCommentId: comment.externalCommentId,
+          sourceCreatedAt: comment.sourceCreatedAt,
           renderedMessage: rendered,
         });
 

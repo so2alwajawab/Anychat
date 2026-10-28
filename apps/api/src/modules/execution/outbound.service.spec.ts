@@ -19,6 +19,12 @@ describe('OutboundService (Gate G5 Requirements)', () => {
         updateMany: vi.fn(),
       },
       metaConnectedAsset: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'asset-1',
+          externalId: 'page-ext-100',
+          platform: 'facebook',
+          linkedPageId: null,
+        }),
         update: vi.fn(),
       },
     };
@@ -38,6 +44,8 @@ describe('OutboundService (Gate G5 Requirements)', () => {
       publishPageCommentReply: vi.fn().mockResolvedValue({ id: 'fb-reply-999' }),
       publishInstagramCommentReply: vi.fn().mockResolvedValue({ id: 'ig-reply-888' }),
       checkCommentReplyExists: vi.fn().mockResolvedValue(true),
+      sendPagePrivateReply: vi.fn().mockResolvedValue({ id: 'mid.fb-msg-123' }),
+      sendInstagramPrivateReply: vi.fn().mockResolvedValue({ id: 'mid.ig-msg-456' }),
     };
 
     mockAudit = {
@@ -196,5 +204,161 @@ describe('OutboundService (Gate G5 Requirements)', () => {
         }),
       }),
     );
+  });
+
+  it('7-day window guard: comment older than 7 days skips network call with WINDOW_EXPIRED (Gate G6)', async () => {
+    const eightDaysAgo = new Date(Date.now() - 8 * 24 * 3600 * 1000);
+
+    const result = await service.executePrivateReply({
+      runId: 'run-old',
+      assetId: 'asset-1',
+      platform: 'facebook',
+      targetCommentId: 'comment-old-1',
+      sourceCreatedAt: eightDaysAgo,
+      renderedMessage: 'رسالة خاصة قديمة',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe('skipped');
+    expect(result.errorCode).toBe('WINDOW_EXPIRED');
+    expect(mockGraph.sendPagePrivateReply).not.toHaveBeenCalled();
+    expect(mockPrisma.outboundAction.create).not.toHaveBeenCalled();
+  });
+
+  it('one-message-per-comment constraint: second attempt blocked before network call (Gate G6)', async () => {
+    // 1st attempt: successfully sent
+    mockPrisma.outboundAction.findUnique.mockResolvedValueOnce(null);
+    mockPrisma.outboundAction.create.mockResolvedValueOnce({
+      id: 'act-priv-1',
+      status: 'pending',
+      idempotencyKey: 'private_reply:comment-single-msg',
+    });
+    mockPrisma.outboundAction.updateMany.mockResolvedValueOnce({ count: 1 });
+    mockPrisma.outboundAction.update.mockResolvedValueOnce({ id: 'act-priv-1', status: 'sent' });
+
+    const firstAttempt = await service.executePrivateReply({
+      runId: 'run-p1',
+      assetId: 'asset-1',
+      platform: 'facebook',
+      targetCommentId: 'comment-single-msg',
+      sourceCreatedAt: new Date(),
+      renderedMessage: 'تفاصيل العرض في الخاص',
+    });
+
+    expect(firstAttempt.ok).toBe(true);
+    expect(firstAttempt.status).toBe('sent');
+    expect(mockGraph.sendPagePrivateReply).toHaveBeenCalledTimes(1);
+
+    // 2nd attempt: DB uniqueness guard detects existing sent row
+    mockPrisma.outboundAction.findUnique.mockResolvedValue({
+      id: 'act-priv-1',
+      status: 'sent',
+      remoteMessageId: 'mid.fb-msg-123',
+      idempotencyKey: 'private_reply:comment-single-msg',
+    });
+
+    const secondAttempt = await service.executePrivateReply({
+      runId: 'run-p2',
+      assetId: 'asset-1',
+      platform: 'facebook',
+      targetCommentId: 'comment-single-msg',
+      sourceCreatedAt: new Date(),
+      renderedMessage: 'محاولة إرسال رسالة ثانية لنفس التعليق',
+    });
+
+    expect(secondAttempt.status).toBe('skipped');
+    // Crucial: Graph API must NOT be called a second time!
+    expect(mockGraph.sendPagePrivateReply).toHaveBeenCalledTimes(1);
+  });
+
+  it('executes Facebook private reply via sendPagePrivateReply (Gate G6)', async () => {
+    mockPrisma.outboundAction.findUnique.mockResolvedValue(null);
+    mockPrisma.outboundAction.create.mockResolvedValue({
+      id: 'act-fb-priv',
+      status: 'pending',
+      idempotencyKey: 'private_reply:fb-c-1',
+    });
+    mockPrisma.outboundAction.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.outboundAction.update.mockResolvedValue({ id: 'act-fb-priv', status: 'sent' });
+
+    const result = await service.executePrivateReply({
+      runId: 'run-fb-p',
+      assetId: 'asset-1',
+      platform: 'facebook',
+      targetCommentId: 'fb-c-1',
+      sourceCreatedAt: new Date(),
+      renderedMessage: 'أهلاً بك، تم إرسال الكتالوج في الخاص',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.status).toBe('sent');
+    expect(result.remoteMessageId).toBe('mid.fb-msg-123');
+    expect(mockGraph.sendPagePrivateReply).toHaveBeenCalledWith(
+      'page-ext-100',
+      'decrypted-page-token-123',
+      'fb-c-1',
+      'أهلاً بك، تم إرسال الكتالوج في الخاص',
+    );
+  });
+
+  it('executes Instagram private reply via sendInstagramPrivateReply (Gate G6)', async () => {
+    mockPrisma.metaConnectedAsset.findUnique.mockResolvedValue({
+      id: 'asset-ig-1',
+      externalId: 'ig-account-123',
+      platform: 'instagram',
+      linkedPageId: 'page-linked-456',
+    });
+    mockPrisma.outboundAction.findUnique.mockResolvedValue(null);
+    mockPrisma.outboundAction.create.mockResolvedValue({
+      id: 'act-ig-priv',
+      status: 'pending',
+      idempotencyKey: 'private_reply:ig-c-1',
+    });
+    mockPrisma.outboundAction.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.outboundAction.update.mockResolvedValue({ id: 'act-ig-priv', status: 'sent' });
+
+    const result = await service.executePrivateReply({
+      runId: 'run-ig-p',
+      assetId: 'asset-ig-1',
+      platform: 'instagram',
+      targetCommentId: 'ig-c-1',
+      sourceCreatedAt: new Date(),
+      renderedMessage: 'تفاصيل المنتج في الخاص',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.status).toBe('sent');
+    expect(result.remoteMessageId).toBe('mid.ig-msg-456');
+    expect(mockGraph.sendInstagramPrivateReply).toHaveBeenCalledWith(
+      'page-linked-456',
+      'decrypted-page-token-123',
+      'ig-c-1',
+      'تفاصيل المنتج في الخاص',
+    );
+  });
+
+  it('private reply rate budget: exceeding 750/hr blocks network call (Gate G6)', async () => {
+    mockRedis.client.incr.mockResolvedValue(751); // Rate budget exhausted
+    mockPrisma.outboundAction.findUnique.mockResolvedValue(null);
+    mockPrisma.outboundAction.create.mockResolvedValue({
+      id: 'act-budget',
+      status: 'pending',
+      idempotencyKey: 'private_reply:c-budget',
+    });
+    mockPrisma.outboundAction.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.executePrivateReply({
+      runId: 'run-b',
+      assetId: 'asset-1',
+      platform: 'facebook',
+      targetCommentId: 'c-budget',
+      sourceCreatedAt: new Date(),
+      renderedMessage: 'رسالة',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe('failed');
+    expect(result.errorCode).toBe('RATE_LIMIT_EXCEEDED');
+    expect(mockGraph.sendPagePrivateReply).not.toHaveBeenCalled();
   });
 });

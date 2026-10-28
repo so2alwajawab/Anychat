@@ -17,6 +17,7 @@
     "admin:bootstrap": "node apps/api/dist/cli/bootstrap.js",
     "admin:reset-password": "node apps/api/dist/cli/reset-password.js",
     "admin:new-recovery": "node apps/api/dist/cli/new-recovery.js",
+    "admin:rotate-key": "node apps/api/dist/cli/reencrypt.js",
     "meta:diag-subscribe": "node apps/api/dist/cli/subscribe-diag.js",
     "meta:spike-private-reply": "node apps/api/dist/cli/private-reply-spike.js",
     "format": "prettier --write .",

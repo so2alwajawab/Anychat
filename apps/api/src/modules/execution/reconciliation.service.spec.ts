@@ -109,4 +109,40 @@ describe('ActionReconciliationService (Gate G5 Crash Recovery)', () => {
       }),
     );
   });
+
+  it('crash test for private reply: unverifiable stuck action is marked unknown, not auto-retried (Section 9.4)', async () => {
+    mockPrisma.outboundAction.findMany.mockResolvedValue([
+      {
+        id: 'act-priv-stuck',
+        actionType: 'private_reply',
+        status: 'sending',
+        claimedAt: new Date(Date.now() - 5 * 60 * 1000),
+        targetCommentId: 'c-priv-99',
+        remoteMessageId: null,
+        attemptCount: 1,
+        run: {
+          commentEvent: {
+            platform: 'facebook',
+            asset: { id: 'asset-1' },
+          },
+        },
+      },
+    ]);
+
+    mockGraph.checkCommentReplyExists.mockResolvedValue(false);
+
+    const result = await service.reconcileStuckActions();
+
+    expect(result.failed).toBe(1);
+    expect(result.retried).toBe(0);
+    expect(mockPrisma.outboundAction.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'act-priv-stuck' },
+        data: expect.objectContaining({
+          status: 'unknown',
+          lastErrorCode: 'UNVERIFIABLE_PRIVATE_REPLY',
+        }),
+      }),
+    );
+  });
 });

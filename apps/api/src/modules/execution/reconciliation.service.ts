@@ -82,6 +82,18 @@ export class ActionReconciliationService {
         });
 
         reconciledSent += 1;
+      } else if (action.actionType === 'private_reply') {
+        // Section 9.4: Never blindly auto-retry private replies because duplicate DMs are prohibited
+        await this.prisma.outboundAction.update({
+          where: { id: action.id },
+          data: {
+            status: 'unknown',
+            lastErrorCode: 'UNVERIFIABLE_PRIVATE_REPLY',
+            lastErrorMessage: 'تعذر التحقق من وصول الرسالة الخاصة، تم إيقاف المحاولة التلقائية منعاً لتكرار الإرسال',
+            reconciledAt: new Date(),
+          },
+        });
+        failed += 1;
       } else if (action.attemptCount >= 3) {
         await this.prisma.outboundAction.update({
           where: { id: action.id },

@@ -15,6 +15,15 @@ export interface ExecuteReplyInput {
   renderedMessage: string;
 }
 
+export interface ExecutePrivateReplyInput {
+  runId: string;
+  assetId: string;
+  platform: 'facebook' | 'instagram';
+  targetCommentId: string;
+  sourceCreatedAt: Date;
+  renderedMessage: string;
+}
+
 export interface ExecuteReplyResult {
   ok: boolean;
   actionId: string;
@@ -256,6 +265,297 @@ export class OutboundService {
           entityId: action.id,
           outcome: 'failure',
           meta: { code: err.code, isRateLimit, message: err.message },
+        });
+
+        return {
+          ok: false,
+          actionId: action.id,
+          status: 'failed',
+          errorCode: String(err.code),
+          errorMessage: err.message,
+        };
+      }
+
+      // Ambiguous outcome (e.g. network timeout): mark 'unknown' to avoid duplicate send
+      const message = (err as Error).message || 'unknown network error';
+      await this.prisma.outboundAction.update({
+        where: { id: action.id },
+        data: {
+          status: 'unknown',
+          lastErrorCode: 'NETWORK_TIMEOUT',
+          lastErrorMessage: message.slice(0, 300),
+        },
+      });
+
+      return {
+        ok: false,
+        actionId: action.id,
+        status: 'unknown',
+        errorCode: 'NETWORK_TIMEOUT',
+        errorMessage: message,
+      };
+    }
+  }
+
+  /**
+   * Rate limit budget check for private replies (Meta policy: 750/hour per account).
+   */
+  async checkPrivateReplyRateBudget(assetId: string): Promise<boolean> {
+    try {
+      const key = `rate_budget:private_reply:${assetId}:${Math.floor(Date.now() / 3600000)}`;
+      const count = await this.redis.client.incr(key);
+      if (count === 1) {
+        await this.redis.client.expire(key, 3600);
+      }
+      return count <= 750;
+    } catch {
+      return true;
+    }
+  }
+
+  /**
+   * Executes a private reply with 7-day window guard, one-message-per-comment DB constraint,
+   * atomic claim-before-send with fencing token, and Send API invocation.
+   * Gate G6:
+   * - 7-day window enforced from sourceCreatedAt (skips network call if expired).
+   * - One-message-per-comment constraint enforced by DB unique constraint on idempotencyKey.
+   */
+  async executePrivateReply(input: ExecutePrivateReplyInput): Promise<ExecuteReplyResult> {
+    // 1. Gate G6: 7-day window guard from sourceCreatedAt
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    const commentAgeMs = Date.now() - new Date(input.sourceCreatedAt).getTime();
+    if (commentAgeMs > sevenDaysMs) {
+      this.logger.warn(
+        `Private reply skipped: comment ${input.targetCommentId} is older than 7 days (${Math.round(commentAgeMs / (24 * 3600 * 1000))}d)`,
+      );
+      return {
+        ok: false,
+        actionId: '',
+        status: 'skipped',
+        errorCode: 'WINDOW_EXPIRED',
+        errorMessage: 'تجاوز التعليق نافذة الرد الخاص المسموحة (7 أيام من تاريخ النشر)',
+      };
+    }
+
+    const idempotencyKey = `private_reply:${input.targetCommentId}`;
+    const fencingToken = randomUUID();
+
+    // 2. Gate G6: One-message-per-comment constraint enforced by DB uniqueness
+    let action = await this.prisma.outboundAction.findUnique({
+      where: { idempotencyKey },
+    });
+
+    if (action) {
+      if (action.status === 'sent') {
+        this.logger.log(
+          `One-message guard: comment ${input.targetCommentId} already received a private reply (remoteId=${action.remoteMessageId})`,
+        );
+        return {
+          ok: true,
+          actionId: action.id,
+          remoteMessageId: action.remoteMessageId ?? undefined,
+          status: 'skipped',
+          errorMessage: 'already_sent',
+        };
+      }
+      if (action.status === 'sending') {
+        this.logger.warn(`One-message guard: comment ${input.targetCommentId} is currently being sent by another worker`);
+        return {
+          ok: false,
+          actionId: action.id,
+          status: 'skipped',
+          errorMessage: 'concurrent_in_flight',
+        };
+      }
+    } else {
+      try {
+        action = await this.prisma.outboundAction.create({
+          data: {
+            runId: input.runId,
+            actionType: 'private_reply',
+            idempotencyKey,
+            targetCommentId: input.targetCommentId,
+            renderedMessage: input.renderedMessage,
+            status: 'pending',
+          },
+        });
+      } catch {
+        // Unique constraint violation -> fetch the existing row and skip
+        action = await this.prisma.outboundAction.findUnique({
+          where: { idempotencyKey },
+        });
+        if (!action || action.status === 'sent' || action.status === 'sending') {
+          return {
+            ok: action?.status === 'sent',
+            actionId: action?.id ?? '',
+            status: 'skipped',
+            errorMessage: 'already_sent_or_in_flight',
+          };
+        }
+      }
+    }
+
+    if (!action) {
+      return { ok: false, actionId: '', status: 'failed', errorMessage: 'action_creation_failed' };
+    }
+
+    // 3. Atomic Claim: UPDATE ... WHERE id = :id AND status = 'pending'
+    const claimCount = await this.prisma.outboundAction.updateMany({
+      where: {
+        id: action.id,
+        status: 'pending',
+      },
+      data: {
+        status: 'sending',
+        fencingToken,
+        claimedAt: new Date(),
+        attemptCount: { increment: 1 },
+      },
+    });
+
+    if (claimCount.count === 0) {
+      this.logger.warn(`Failed to claim outbound action ${action.id}: already claimed or completed`);
+      return { ok: false, actionId: action.id, status: 'skipped' };
+    }
+
+    // 4. Rate budget check (750/hour per asset)
+    const budgetOk = await this.checkPrivateReplyRateBudget(input.assetId);
+    if (!budgetOk) {
+      await this.prisma.outboundAction.update({
+        where: { id: action.id },
+        data: {
+          status: 'failed',
+          lastErrorCode: 'RATE_LIMIT_EXCEEDED',
+          lastErrorMessage: 'تجاوز معدل الرسائل الخاصة المسموح به لهذا الحساب (750/ساعة)',
+        },
+      });
+      return {
+        ok: false,
+        actionId: action.id,
+        status: 'failed',
+        errorCode: 'RATE_LIMIT_EXCEEDED',
+        errorMessage: 'rate_budget_exhausted',
+      };
+    }
+
+    // 5. Asset lookup and Page Token decryption
+    const asset = await this.prisma.metaConnectedAsset.findUnique({
+      where: { id: input.assetId },
+    });
+    if (!asset) {
+      await this.prisma.outboundAction.update({
+        where: { id: action.id },
+        data: {
+          status: 'failed',
+          lastErrorCode: 'ASSET_NOT_FOUND',
+          lastErrorMessage: 'الحساب أو الصفحة المرتبطة غير موجودة',
+        },
+      });
+      return { ok: false, actionId: action.id, status: 'failed', errorCode: 'ASSET_NOT_FOUND' };
+    }
+
+    let pageToken: string;
+    try {
+      pageToken = await this.assets.decryptToken(input.assetId);
+    } catch (err) {
+      await this.prisma.outboundAction.update({
+        where: { id: action.id },
+        data: {
+          status: 'failed',
+          lastErrorCode: 'TOKEN_DECRYPT_FAILED',
+          lastErrorMessage: (err as Error).message,
+        },
+      });
+      return {
+        ok: false,
+        actionId: action.id,
+        status: 'failed',
+        errorCode: 'TOKEN_DECRYPT_FAILED',
+        errorMessage: (err as Error).message,
+      };
+    }
+
+    // 6. Graph API execution
+    try {
+      let sendResult: { id: string };
+      if (input.platform === 'instagram') {
+        const pageId = asset.linkedPageId ?? asset.externalId;
+        sendResult = await this.graph.sendInstagramPrivateReply(
+          pageId,
+          pageToken,
+          input.targetCommentId,
+          input.renderedMessage,
+        );
+      } else {
+        sendResult = await this.graph.sendPagePrivateReply(
+          asset.externalId,
+          pageToken,
+          input.targetCommentId,
+          input.renderedMessage,
+        );
+      }
+
+      await this.prisma.outboundAction.update({
+        where: { id: action.id },
+        data: {
+          status: 'sent',
+          remoteMessageId: sendResult.id,
+          sentAt: new Date(),
+        },
+      });
+
+      await this.audit.record({
+        action: AUDIT_ACTIONS.OUTBOUND_ACTION_SENT,
+        entity: 'outbound_action',
+        entityId: action.id,
+        meta: {
+          actionType: 'private_reply',
+          platform: input.platform,
+          targetCommentId: input.targetCommentId,
+          remoteMessageId: sendResult.id,
+        },
+      });
+
+      return {
+        ok: true,
+        actionId: action.id,
+        remoteMessageId: sendResult.id,
+        status: 'sent',
+      };
+    } catch (err: unknown) {
+      if (err instanceof GraphApiError) {
+        const isRateLimit = RATE_LIMIT_CODES.has(err.code);
+        const isAuthError = err.code === 190 || err.code === 200;
+
+        await this.prisma.outboundAction.update({
+          where: { id: action.id },
+          data: {
+            status: 'failed',
+            lastErrorCode: String(err.code),
+            lastErrorMessage: err.message.slice(0, 300),
+          },
+        });
+
+        if (isAuthError) {
+          await this.prisma.metaConnectedAsset.update({
+            where: { id: input.assetId },
+            data: { connectionStatus: 'reauth_required' },
+          });
+          await this.audit.record({
+            action: AUDIT_ACTIONS.META_ASSET_HEALTH,
+            entity: 'meta_connected_asset',
+            entityId: input.assetId,
+            outcome: 'failure',
+            meta: { code: err.code, reason: 'token_invalid_or_expired' },
+          });
+        }
+
+        await this.audit.record({
+          action: AUDIT_ACTIONS.OUTBOUND_ACTION_FAILED,
+          entity: 'outbound_action',
+          entityId: action.id,
+          outcome: 'failure',
+          meta: { actionType: 'private_reply', code: err.code, isRateLimit, message: err.message },
         });
 
         return {

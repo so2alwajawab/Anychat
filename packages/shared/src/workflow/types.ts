@@ -9,6 +9,10 @@ export const ALLOW_LISTED_VARIABLES = [
   'asset.name',
   'workflow.name',
   'now.date',
+  'commenter_name',
+  'comment_text',
+  'page_name',
+  'current_date',
 ] as const;
 
 export type AllowListedVariable = (typeof ALLOW_LISTED_VARIABLES)[number];
