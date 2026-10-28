@@ -32,7 +32,25 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const status = exception.getStatus();
       const payload = exception.getResponse();
       if (typeof payload === 'object' && payload !== null && 'statusCode' in payload) {
-        res.status(status).json(payload);
+        const existing = payload as { code?: unknown };
+        if (typeof existing.code === 'string') {
+          // Already in the documented contract (apiError body) — pass through.
+          res.status(status).json(payload);
+          return;
+        }
+        // class-validator / plain Nest payloads carry no `code`, which would
+        // break the { statusCode, code, message } contract (and the web client
+        // keys off `code` for Arabic messages). Normalize them, keeping the
+        // field-level messages under details.messages.
+        const raw = (payload as { message?: unknown }).message;
+        const messages = Array.isArray(raw)
+          ? raw.map((m) => (typeof m === 'string' ? m : JSON.stringify(m)))
+          : typeof raw === 'string'
+            ? [raw]
+            : [];
+        res
+          .status(status)
+          .json(apiError(status, codeForStatus(status), messages.length ? { messages } : undefined));
         return;
       }
       const details =

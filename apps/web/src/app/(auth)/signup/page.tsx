@@ -33,7 +33,8 @@ export default function SignupPage() {
         password,
         ...(organizationName.trim() ? { organizationName: organizationName.trim() } : {}),
       });
-      router.replace("/dashboard");
+      // Fresh accounts start at the onboarding wizard, not the dashboard.
+      router.replace("/onboarding");
     } catch (err) {
       fail(err);
       setLoading(false);
@@ -81,7 +82,7 @@ export default function SignupPage() {
               required
               minLength={4}
               maxLength={32}
-              pattern="[a-zA-Z0-9](?:[a-zA-Z0-9._-]{2,30})[a-zA-Z0-9]"
+              pattern="[a-zA-Z0-9](?:[a-zA-Z0-9._\-]{2,30})[a-zA-Z0-9]"
               className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm outline-none focus:border-brand"
             />
           </div>

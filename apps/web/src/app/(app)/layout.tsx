@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { UI } from "@anychat/shared";
 import { AppShell } from "@/components/app-shell";
-import { getSession, type SessionUser } from "@/lib/api";
+import { getJson, getSession, type SessionUser } from "@/lib/api";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<SessionUser | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -26,6 +27,23 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       alive = false;
     };
   }, [router]);
+
+  // First-run guard: an organization that has not finished onboarding is bounced
+  // back to the wizard on every app route (the wizard itself lives at
+  // /onboarding, which is exempt to avoid a redirect loop). Transient failures
+  // do not bounce — the session gate above is the security boundary; this is UX.
+  useEffect(() => {
+    if (!user || pathname === "/onboarding") return;
+    let alive = true;
+    getJson<{ completed: boolean }>("/api/v1/onboarding")
+      .then((s) => {
+        if (alive && !s.completed) router.replace("/onboarding");
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [user, pathname, router]);
 
   if (failed) {
     return (

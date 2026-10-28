@@ -7,6 +7,7 @@ export const AUDIT_ACTIONS = {
   SIGNUP_SUCCESS: 'auth.signup.success',
   SIGNUP_FAILED: 'auth.signup.failed',
   SIGNUP_RATE_LIMITED: 'auth.signup.rate_limited',
+  ONBOARDING_COMPLETED: 'onboarding.completed',
   SESSION_FINGERPRINT_MISMATCH: 'auth.session.fingerprint_mismatch',
   RECOVERY_USED: 'auth.recovery.used',
   RECOVERY_RATE_LIMITED: 'auth.recovery.rate_limited',

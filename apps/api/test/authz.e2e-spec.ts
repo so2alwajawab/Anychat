@@ -74,6 +74,8 @@ const EXPECTED_ROUTES: RouteInfo[] = [
   { httpMethod: 'POST', path: '/api/v1/auth/logout', isPublic: true },
   { httpMethod: 'GET', path: '/api/v1/auth/session', isPublic: false },
   { httpMethod: 'GET', path: '/api/v1/audit', isPublic: false },
+  { httpMethod: 'GET', path: '/api/v1/onboarding', isPublic: false },
+  { httpMethod: 'PUT', path: '/api/v1/onboarding', isPublic: false },
   { httpMethod: 'GET', path: '/api/v1/meta/config', isPublic: false },
   { httpMethod: 'PUT', path: '/api/v1/meta/config', isPublic: false },
   { httpMethod: 'GET', path: '/api/v1/meta/oauth/start', isPublic: false },

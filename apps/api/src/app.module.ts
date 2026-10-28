@@ -18,6 +18,7 @@ import { ContentModule } from './modules/content/content.module.js';
 import { TemplatesModule } from './modules/templates/templates.module.js';
 import { WorkflowsModule } from './modules/workflows/workflows.module.js';
 import { ExecutionModule } from './modules/execution/execution.module.js';
+import { OnboardingModule } from './modules/onboarding/onboarding.module.js';
 
 const isDev = serverEnv.NODE_ENV === 'development';
 
@@ -61,6 +62,7 @@ const isDev = serverEnv.NODE_ENV === 'development';
     TemplatesModule,
     WorkflowsModule,
     ExecutionModule,
+    OnboardingModule,
   ],
   providers: [
     { provide: APP_PIPE, useValue: new ValidationPipe({ whitelist: true, transform: true }) },
