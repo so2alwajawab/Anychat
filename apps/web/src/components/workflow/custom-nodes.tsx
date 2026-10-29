@@ -116,31 +116,6 @@ export function TriggerCommentNode({ data, selected }: NodeProps) {
     </div>
   );
 }
-          <span className="text-slate-500">نمط المطابقة:</span>
-          <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
-            isAllComments ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"
-          }`}>
-            {isAllComments ? "✨ أي تعليق" : "🎯 كلمات مفتاحية"}
-          </span>
-        </div>
-
-        {(d.excludeKeywords?.length ?? 0) > 0 && (
-          <div className="flex items-center justify-between text-[10px] text-rose-600 pt-1 border-t border-slate-200/60">
-            <span>كلمات مستبعدة:</span>
-            <span className="font-bold">{d.excludeKeywords?.length} كلمة</span>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
-          <span>تصفية الردود:</span>
-          <span>{d.includeReplies ? "يشمل الردود الفرعية" : "التعليقات الرئيسية فقط"}</span>
-        </div>
-      </div>
-
-      <Handle type="source" position={Position.Bottom} className="!h-3.5 !w-3.5 !bg-brand !border-2 !border-white" />
-    </div>
-  );
-}
 
 export function ConditionTextNode({ data, selected }: NodeProps) {
   const d = (data ?? {}) as { op?: string; rules?: Array<{ kind: string; value: string }> };
