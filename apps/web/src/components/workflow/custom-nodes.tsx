@@ -48,56 +48,74 @@ export function TriggerCommentNode({ data, selected }: NodeProps) {
     matchType?: "all_comments" | "keywords";
     excludeKeywords?: string[];
     postScope?: { mode?: string; postExternalIds?: string[] };
+    autoLike?: boolean;
+    publicReplyEnabled?: boolean;
   };
 
   const isSpecificPosts = d.postScope?.mode === "posts" && (d.postScope.postExternalIds?.length ?? 0) > 0;
-  const isReels = d.postScope?.mode === "reels";
   const isAllComments = d.matchType === "all_comments";
 
   return (
     <div
-      className={`min-w-[270px] max-w-[320px] rounded-2xl border-2 bg-white p-4 shadow-md transition ${
-        selected ? "border-brand shadow-lg ring-2 ring-brand/20" : "border-red-400 hover:border-red-500"
+      className={`min-w-[280px] max-w-[320px] rounded-3xl border-2 bg-white p-5 shadow-sm transition ${
+        selected ? "border-brand shadow-xl ring-4 ring-brand/10" : "border-slate-200 hover:border-slate-300"
       }`}
     >
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-brand">
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
+      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-600 font-bold text-sm">
+            ⚡
+          </div>
+          <div>
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">بدء الأتمتة عند...</span>
+            <h4 className="text-xs font-bold text-slate-900">تعليق على المنشور</h4>
+          </div>
         </div>
-        <div>
-          <span className="block text-[11px] font-bold uppercase tracking-wider text-red-600">مشغل البداية (Trigger)</span>
-          <h4 className="text-sm font-bold text-slate-800">وصول تعليق جديد</h4>
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+          عند البدء
+        </span>
+      </div>
+
+      <div className="mt-3 space-y-2 rounded-2xl bg-slate-50/80 p-3 text-xs border border-slate-100">
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-slate-500">المنشور المستهدف:</span>
+          <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+            isSpecificPosts ? "bg-blue-100 text-blue-800" : "bg-emerald-100 text-emerald-800"
+          }`}>
+            {isSpecificPosts ? `📌 منشور مخصص (#${d.postScope?.postExternalIds?.[0]?.slice(0, 8)}...)` : "🌐 أي منشور"}
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-slate-500">شرط الكلمات:</span>
+          <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+            isAllComments ? "bg-slate-200 text-slate-800" : "bg-purple-100 text-purple-800"
+          }`}>
+            {isAllComments ? "جميع الكلمات" : "كلمات محددة"}
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-slate-200/60">
+          <span className="text-slate-500">لايك تلقائي:</span>
+          <span className="font-bold text-slate-700">
+            {d.autoLike ?? true ? "مفعل 👍" : "معطل"}
+          </span>
         </div>
       </div>
 
-      <div className="mt-3 space-y-1.5 rounded-xl bg-slate-50 p-2.5 text-xs border border-slate-100">
-        <div className="flex items-center justify-between">
-          <span className="text-slate-500">المنصة:</span>
-          <span className="font-semibold text-slate-800">
-            {d.platform === "facebook" ? "📘 فيسبوك فقط" : d.platform === "instagram" ? "📸 إنستغرام فقط" : "🌐 فيسبوك وإنستغرام"}
-          </span>
-        </div>
+      <div className="mt-3 flex items-center justify-end text-[10px] font-bold text-slate-400 gap-1">
+        <span>الخطوة التالية (Then)</span>
+        <span>⚪</span>
+      </div>
 
-        <div className="flex items-center justify-between">
-          <span className="text-slate-500">المنشورات:</span>
-          <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
-            isSpecificPosts
-              ? "bg-amber-100 text-amber-800"
-              : isReels
-              ? "bg-purple-100 text-purple-800"
-              : "bg-emerald-100 text-emerald-800"
-          }`}>
-            {isSpecificPosts
-              ? `📌 ${d.postScope?.postExternalIds?.length} منشور محدد`
-              : isReels
-              ? "🎬 مقاطع الريلز فقط"
-              : "🌐 كل المنشورات"}
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between">
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        className="!h-3.5 !w-3.5 !bg-brand !border-2 !border-white"
+      />
+    </div>
+  );
+}
           <span className="text-slate-500">نمط المطابقة:</span>
           <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
             isAllComments ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"
@@ -271,59 +289,100 @@ export function ActionPrivateReplyNode({ data, selected }: NodeProps) {
   const d = (data ?? {}) as {
     message?: string;
     imageUrl?: string;
-    buttons?: Array<{ label: string; url: string; type?: string }>;
+    delaySeconds?: number;
+    buttons?: Array<{ id?: string; label: string; url: string; type?: string }>;
   };
 
   const hasButtons = Array.isArray(d.buttons) && d.buttons.length > 0;
 
   return (
     <div
-      className={`min-w-[270px] max-w-[320px] rounded-2xl border-2 bg-white p-4 shadow-md transition ${
-        selected ? "border-sky-600 shadow-lg ring-2 ring-sky-600/20" : "border-sky-400 hover:border-sky-500"
+      className={`min-w-[280px] max-w-[340px] rounded-3xl border-2 bg-white p-5 shadow-sm transition ${
+        selected ? "border-blue-500 shadow-xl ring-4 ring-blue-500/10" : "border-slate-200 hover:border-slate-300"
       }`}
     >
-      <Handle type="target" position={Position.Top} className="!h-3.5 !w-3.5 !bg-sky-600 !border-2 !border-white" />
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-          </svg>
-        </div>
-        <div>
-          <span className="block text-[11px] font-bold uppercase tracking-wider text-sky-600">رسالة خاصة (Direct / DM)</span>
-          <h4 className="text-sm font-bold text-slate-800">إرسال في الخاص</h4>
-        </div>
-      </div>
+      <Handle
+        type="target"
+        position={Position.Top}
+        className="!h-3.5 !w-3.5 !bg-blue-600 !border-2 !border-white"
+      />
 
-      {d.imageUrl && (
-        <div className="mt-2.5 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={d.imageUrl} alt="مرفق الرسالة" className="h-20 w-full object-cover" />
-          <div className="bg-slate-50 px-2 py-0.5 text-[10px] text-slate-500 font-medium text-center">
-            🖼️ مرفق صورة بالرسالة
+      {/* Header */}
+      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-600 font-bold text-sm">
+            💬
+          </div>
+          <div>
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">فيسبوك / إنستغرام</span>
+            <h4 className="text-xs font-bold text-slate-900">إرسال رسالة (Send Message)</h4>
           </div>
         </div>
-      )}
-
-      <div className="mt-2.5 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-800 border border-slate-100 line-clamp-3 leading-relaxed">
-        {formatMessagePreview(d.message)}
       </div>
 
-      {hasButtons && (
-        <div className="mt-2 space-y-1">
-          {d.buttons!.map((btn, i) => (
-            <div
-              key={i}
-              className="flex items-center justify-center gap-1 rounded-lg bg-sky-50 border border-sky-200 py-1 px-2 text-[11px] font-bold text-sky-800 truncate"
-            >
-              <span>{btn.type === "whatsapp" ? "💬" : btn.type === "phone" ? "📞" : "🔗"}</span>
-              <span className="truncate">{btn.label}</span>
-            </div>
-          ))}
+      {/* Content Blocks Container */}
+      <div className="mt-3 space-y-2.5">
+        {/* Block 1: Text message */}
+        <div className="rounded-2xl bg-slate-50 p-3 text-xs text-slate-800 border border-slate-100 leading-relaxed min-h-[48px]">
+          {formatMessagePreview(d.message)}
         </div>
-      )}
 
-      <Handle type="source" position={Position.Bottom} className="!h-3.5 !w-3.5 !bg-sky-600 !border-2 !border-white" />
+        {/* Block 2: Buttons with handles */}
+        {hasButtons && (
+          <div className="space-y-1.5">
+            {d.buttons!.map((btn, i) => (
+              <div
+                key={btn.id || i}
+                className="relative flex items-center justify-between rounded-xl border border-slate-200 bg-white py-2 px-3 text-xs font-bold text-slate-700 hover:border-brand/50 shadow-2xs"
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <span>{btn.type === "whatsapp" ? "💬" : btn.type === "phone" ? "📞" : "🔗"}</span>
+                  <span className="truncate">{btn.label}</span>
+                </div>
+                {/* Specific handle for button branching if clicked */}
+                <Handle
+                  type="source"
+                  position={Position.Left}
+                  id={`btn_${btn.id || i}`}
+                  className="!h-3 !w-3 !bg-blue-500 !border-2 !border-white -left-1.5"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Block 3: Typing Delay Simulation */}
+        {(d.delaySeconds ?? 0) > 0 && (
+          <div className="flex items-center gap-2 rounded-xl bg-purple-50 border border-purple-200/60 px-3 py-1.5 text-[11px] font-semibold text-purple-700">
+            <span>⏱️</span>
+            <span>Typing {d.delaySeconds} seconds... (محاكاة الكتابة)</span>
+          </div>
+        )}
+
+        {/* Block 4: Image Attachment */}
+        {d.imageUrl && (
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-2xs">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={d.imageUrl} alt="مرفق الرسالة" className="h-28 w-full object-cover" />
+            <div className="bg-white/90 px-3 py-1 text-[10px] text-slate-500 font-medium flex items-center justify-between border-t border-slate-100">
+              <span>🖼️ صورة مرفقة</span>
+              <span className="text-[9px] text-emerald-600 font-bold">جاهز للإرسال ✓</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Next Step Handle */}
+      <div className="mt-3 flex items-center justify-end text-[10px] font-bold text-slate-400 gap-1 pt-2 border-t border-slate-100">
+        <span>الخطوة التالية (Next Step)</span>
+        <span>⚪</span>
+      </div>
+
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        className="!h-3.5 !w-3.5 !bg-blue-600 !border-2 !border-white"
+      />
     </div>
   );
 }

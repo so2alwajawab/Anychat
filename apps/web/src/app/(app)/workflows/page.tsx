@@ -30,6 +30,8 @@ import { PhonePreview } from "@/components/workflow/phone-preview";
 import { VariablePillList } from "@/components/common/variable-pill";
 import { NegativeKeywordInput } from "@/components/common/negative-keyword-input";
 import { ActionButtonsManager, type ActionButtonItem } from "@/components/common/action-button";
+import { SelectPostModal } from "@/components/workflow/select-post-modal";
+import { EditButtonModal } from "@/components/workflow/edit-button-modal";
 
 const FlowTemplatesModal = dynamic(
   () => import("@/components/workflow/flow-templates-modal").then((m) => m.FlowTemplatesModal),
@@ -1316,7 +1318,7 @@ export default function WorkflowsPage() {
                         </div>
                       </div>
 
-                      {/* Sub-replies toggle */}
+                      {/* Sub-replies toggle (Track first-level comments only) */}
                       <div className="pt-2 border-t border-border">
                         <label className="flex items-center gap-2 cursor-pointer select-none">
                           <input
@@ -1326,8 +1328,24 @@ export default function WorkflowsPage() {
                             className="rounded border-slate-300 text-brand focus:ring-brand h-4 w-4"
                           />
                           <div>
-                            <span className="font-bold text-slate-800 block text-xs">الرد على التعليقات الرئيسية فقط</span>
+                            <span className="font-bold text-slate-800 block text-xs">الرد على التعليقات الرئيسية فقط (Track first-level comments only)</span>
                             <span className="text-[11px] text-slate-500">تجاهل الردود الفرعية على تعليقات العملاء الآخرين</span>
+                          </div>
+                        </label>
+                      </div>
+
+                      {/* Auto-Like Comment Option (Like comments) */}
+                      <div className="pt-2 border-t border-border">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(selectedNode.data.autoLike ?? true)}
+                            onChange={(e) => updateSelectedNodeData("autoLike", e.target.checked)}
+                            className="rounded border-slate-300 text-brand focus:ring-brand h-4 w-4"
+                          />
+                          <div>
+                            <span className="font-bold text-slate-800 block text-xs">الإعجاب بالتعليقات تلقائياً (Like comments) 👍</span>
+                            <span className="text-[11px] text-slate-500">وضع إعجاب فوري من الصفحة على تعليق العميل لزيادة التفاعل</span>
                           </div>
                         </label>
                       </div>
@@ -1748,6 +1766,33 @@ export default function WorkflowsPage() {
                         )}
                       </div>
 
+                      {/* Content Blocks: Delay & Typing indicator simulation */}
+                      <div className="rounded-xl border border-purple-100 bg-purple-50/50 p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
+                            <span>⏱️</span>
+                            <span>محاكاة الكتابة والتأخير (Typing delay)</span>
+                          </label>
+                          <span className="text-[11px] font-bold text-purple-700 font-mono">
+                            {Number(selectedNode.data.delaySeconds ?? 0)} ثواني
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="15"
+                          step="1"
+                          value={Number(selectedNode.data.delaySeconds ?? 0)}
+                          onChange={(e) => updateSelectedNodeData("delaySeconds", Number(e.target.value))}
+                          className="w-full accent-purple-600 cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-slate-400">
+                          <span>0 ثواني (فوري)</span>
+                          <span>3 ثواني (طبيعي)</span>
+                          <span>15 ثانية</span>
+                        </div>
+                      </div>
+
                       {/* Interactive Action Buttons Manager */}
                       <ActionButtonsManager
                         buttons={
@@ -2146,6 +2191,23 @@ export default function WorkflowsPage() {
         isOpen={isTemplateModalOpen}
         onClose={() => setIsTemplateModalOpen(false)}
         onApplyTemplate={handleApplyTemplate}
+      />
+
+      {/* Select Post Modal */}
+      <SelectPostModal
+        isOpen={isPostPickerOpen}
+        onClose={() => setIsPostPickerOpen(false)}
+        selectedExternalId={
+          ((selectedNode?.data?.postScope as { postExternalIds?: string[] })?.postExternalIds?.[0]) || ""
+        }
+        onSelectPost={(post) => {
+          if (selectedNode) {
+            updateSelectedNodeData("postScope", {
+              mode: "posts",
+              postExternalIds: [post.externalId],
+            });
+          }
+        }}
       />
 
       {/* Delete Confirmation Modal */}
