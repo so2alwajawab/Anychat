@@ -25,6 +25,7 @@ export interface ExecutePrivateReplyInput {
   sourceCreatedAt: Date;
   renderedMessage: string;
   imageUrl?: string;
+  buttons?: Array<{ label: string; url: string; type?: string }>;
 }
 
 export interface ExecuteReplyResult {
@@ -509,6 +510,12 @@ export class OutboundService {
     // 6. Graph API execution
     try {
       let sendResult: { id: string };
+      const graphButtons = input.buttons?.map((b) => ({
+        title: b.label,
+        url: b.url,
+        type: b.type,
+      }));
+
       if (input.platform === 'instagram') {
         const pageId = asset.linkedPageId ?? asset.externalId;
         sendResult = await this.graph.sendInstagramPrivateReply(
@@ -517,6 +524,7 @@ export class OutboundService {
           input.targetCommentId,
           input.renderedMessage,
           input.imageUrl,
+          ...(graphButtons && graphButtons.length > 0 ? [graphButtons] : []),
         );
       } else {
         sendResult = await this.graph.sendPagePrivateReply(
@@ -525,6 +533,7 @@ export class OutboundService {
           input.targetCommentId,
           input.renderedMessage,
           input.imageUrl,
+          ...(graphButtons && graphButtons.length > 0 ? [graphButtons] : []),
         );
       }
 

@@ -277,17 +277,13 @@ export class ExecutionService {
           rawMessage = nodeData.message || '';
         }
 
-        let rendered = renderVariables(rawMessage, variableContext);
+        const rendered = renderVariables(rawMessage, variableContext);
 
-        if (Array.isArray(nodeData.buttons) && nodeData.buttons.length > 0) {
-          const validButtons = nodeData.buttons.filter(
-            (b) => b && typeof b.label === 'string' && b.label.trim() && typeof b.url === 'string' && b.url.trim(),
-          );
-          if (validButtons.length > 0) {
-            const btnList = validButtons.map((b) => `👉 ${b.label.trim()}: ${b.url.trim()}`).join('\n');
-            rendered = `${rendered}\n\n${btnList}`;
-          }
-        }
+        const validButtons = Array.isArray(nodeData.buttons)
+          ? nodeData.buttons.filter(
+              (b) => b && typeof b.label === 'string' && b.label.trim() && typeof b.url === 'string' && b.url.trim(),
+            )
+          : undefined;
 
         const outboundResult = await this.outbound.executePrivateReply({
           runId,
@@ -297,6 +293,7 @@ export class ExecutionService {
           sourceCreatedAt: comment.sourceCreatedAt,
           renderedMessage: rendered,
           imageUrl: nodeData.imageUrl,
+          buttons: validButtons && validButtons.length > 0 ? validButtons : undefined,
         });
 
         await this.prisma.nodeExecution.create({

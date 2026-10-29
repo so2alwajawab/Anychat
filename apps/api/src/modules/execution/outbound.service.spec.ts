@@ -405,6 +405,51 @@ describe('OutboundService (Gate G5 Requirements)', () => {
     );
   });
 
+  it('forwards action buttons to Graph API for private reply when buttons are provided', async () => {
+    mockPrisma.metaConnectedAsset.findUnique.mockResolvedValue({
+      id: 'asset-btn-1',
+      externalId: 'page-ext-100',
+      platform: 'facebook',
+      encryptedAccessToken: 'enc-token-123',
+    });
+    mockPrisma.outboundAction.findUnique.mockResolvedValue(null);
+    mockPrisma.outboundAction.create.mockResolvedValue({
+      id: 'act-btn',
+      status: 'pending',
+      idempotencyKey: 'private_reply:c-btn-1',
+    });
+    mockPrisma.outboundAction.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.outboundAction.update.mockResolvedValue({ id: 'act-btn', status: 'sent' });
+
+    const buttons = [
+      { label: 'زيارة موقعنا', url: 'https://example.com', type: 'url' },
+      { label: 'واتساب', url: 'https://wa.me/123456', type: 'whatsapp' },
+    ];
+
+    const result = await service.executePrivateReply({
+      runId: 'run-btn',
+      assetId: 'asset-btn-1',
+      platform: 'facebook',
+      targetCommentId: 'c-btn-1',
+      sourceCreatedAt: new Date(),
+      renderedMessage: 'تفاصيل العرض مع الأزرار',
+      buttons,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mockGraph.sendPagePrivateReply).toHaveBeenCalledWith(
+      'page-ext-100',
+      'decrypted-page-token-123',
+      'c-btn-1',
+      'تفاصيل العرض مع الأزرار',
+      undefined,
+      [
+        { title: 'زيارة موقعنا', url: 'https://example.com', type: 'url' },
+        { title: 'واتساب', url: 'https://wa.me/123456', type: 'whatsapp' },
+      ],
+    );
+  });
+
   it('fencing: a stale worker can never overwrite a reclaimed action (no unguarded writes)', async () => {
     // Claim is won, then the crash reconciler hands the row to another worker,
     // so our guarded writes find status/fencingToken no longer matching (count 0).

@@ -226,4 +226,59 @@ describe('ExecutionService (Gate G5 Requirements)', () => {
       }),
     );
   });
+
+  it('passes action buttons cleanly to outbound executePrivateReply', async () => {
+    const workflowDef = {
+      schemaVersion: 1,
+      nodes: [
+        { id: 'node-trig', type: 'trigger.comment', position: { x: 0, y: 0 }, data: {} },
+        {
+          id: 'node-priv-btn',
+          type: 'action.private_reply',
+          position: { x: 0, y: 100 },
+          data: {
+            message: 'مرحباً، انقر على الزر للمزيد',
+            buttons: [
+              { label: 'طلب الآن', url: 'https://example.com/order', type: 'url' },
+            ],
+          },
+        },
+      ],
+      edges: [{ id: 'e1', source: 'node-trig', target: 'node-priv-btn' }],
+    };
+
+    const commentDate = new Date();
+    mockPrisma.executionRun.findUnique.mockResolvedValue({
+      id: 'run-priv-btn',
+      status: 'pending',
+      workflowVersion: {
+        version: 1,
+        definition: workflowDef,
+        workflow: { id: 'wf-btn', name: 'أتمتة الأزرار' },
+      },
+      commentEvent: {
+        id: 'c-priv-btn',
+        platform: 'facebook',
+        externalCommentId: 'fb-c-priv-btn-1',
+        text: 'بكام؟',
+        authorUsername: 'أحمد',
+        sourceCreatedAt: commentDate,
+        assetId: 'asset-1',
+        asset: { id: 'asset-1', displayName: 'Echoes' },
+        post: { id: 'post-1', externalId: 'ext-post-1', isEligibleForReply: true },
+      },
+    });
+
+    await service.executeRun('run-priv-btn');
+
+    expect(mockOutbound.executePrivateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: 'run-priv-btn',
+        renderedMessage: 'مرحباً، انقر على الزر للمزيد',
+        buttons: [
+          { label: 'طلب الآن', url: 'https://example.com/order', type: 'url' },
+        ],
+      }),
+    );
+  });
 });

@@ -42,6 +42,13 @@ export interface GraphComment {
   parentId?: string;
 }
 
+export interface GraphActionButton {
+  type?: string;
+  title: string;
+  url?: string;
+  payload?: string;
+}
+
 export abstract class GraphClient {
   abstract exchangeShortLived(input: {
     code: string;
@@ -109,6 +116,7 @@ export abstract class GraphClient {
     commentId: string,
     message: string,
     attachmentUrl?: string,
+    buttons?: GraphActionButton[],
   ): Promise<{ id: string }>;
 
   abstract sendInstagramPrivateReply(
@@ -117,6 +125,7 @@ export abstract class GraphClient {
     commentId: string,
     message: string,
     attachmentUrl?: string,
+    buttons?: GraphActionButton[],
   ): Promise<{ id: string }>;
 
   abstract checkCommentReplyExists(
@@ -414,15 +423,50 @@ export class HttpGraphClient extends GraphClient {
     commentId: string,
     message: string,
     attachmentUrl?: string,
+    buttons?: GraphActionButton[],
   ): Promise<{ id: string }> {
     const cfg = await this.config.requireConfig();
-    const messagePayload: Record<string, unknown> = { text: message };
-    if (attachmentUrl) {
-      messagePayload.attachment = {
-        type: 'image',
-        payload: { url: attachmentUrl, is_reusable: true },
+    let messagePayload: Record<string, unknown>;
+
+    if (buttons && buttons.length > 0) {
+      // Messenger Button Template: max 3 buttons supported
+      const formattedButtons = buttons.slice(0, 3).map((btn) => {
+        if (btn.type === 'phone' || btn.type === 'phone_number') {
+          return {
+            type: 'phone_number',
+            title: btn.title,
+            payload: btn.payload || btn.url || '',
+          };
+        }
+        return {
+          type: 'web_url',
+          title: btn.title,
+          url: btn.url || '',
+        };
+      });
+
+      messagePayload = {
+        attachment: {
+          type: 'template',
+          payload: {
+            template_type: 'button',
+            text: message,
+            buttons: formattedButtons,
+          },
+        },
       };
+    } else if (attachmentUrl) {
+      messagePayload = {
+        text: message,
+        attachment: {
+          type: 'image',
+          payload: { url: attachmentUrl, is_reusable: true },
+        },
+      };
+    } else {
+      messagePayload = { text: message };
     }
+
     const body = await this.post(`/${pageId}/messages`, {
       recipient: JSON.stringify({ comment_id: commentId }),
       message: JSON.stringify(messagePayload),
@@ -439,15 +483,41 @@ export class HttpGraphClient extends GraphClient {
     commentId: string,
     message: string,
     attachmentUrl?: string,
+    buttons?: GraphActionButton[],
   ): Promise<{ id: string }> {
     const cfg = await this.config.requireConfig();
-    const messagePayload: Record<string, unknown> = { text: message };
-    if (attachmentUrl) {
-      messagePayload.attachment = {
-        type: 'image',
-        payload: { url: attachmentUrl, is_reusable: true },
+    let messagePayload: Record<string, unknown>;
+
+    if (buttons && buttons.length > 0) {
+      // Instagram Graph API Button Template support (up to 3 buttons)
+      const formattedButtons = buttons.slice(0, 3).map((btn) => ({
+        type: 'web_url',
+        title: btn.title,
+        url: btn.url || '',
+      }));
+
+      messagePayload = {
+        attachment: {
+          type: 'template',
+          payload: {
+            template_type: 'button',
+            text: message,
+            buttons: formattedButtons,
+          },
+        },
       };
+    } else if (attachmentUrl) {
+      messagePayload = {
+        text: message,
+        attachment: {
+          type: 'image',
+          payload: { url: attachmentUrl, is_reusable: true },
+        },
+      };
+    } else {
+      messagePayload = { text: message };
     }
+
     const body = await this.post(`/${pageIdOrIgId}/messages`, {
       recipient: JSON.stringify({ comment_id: commentId }),
       message: JSON.stringify(messagePayload),
