@@ -1,20 +1,9 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState, type FormEvent } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { UI } from "@anychat/shared";
-import { ApiError, delJson, getJson, postJson, putJson } from "@/lib/api";
-
-interface MetaConfig {
-  appId: string | null;
-  graphApiVersion: string;
-  proofEnabled: boolean;
-  hasAppSecret: boolean;
-  hasVerifyToken: boolean;
-  encryptionKeyConfigured: boolean;
-  redirectUri: string;
-  webhookCallbackUrl: string;
-}
+import { ApiError, delJson, getJson, postJson } from "@/lib/api";
 
 interface MetaAsset {
   id: string;
@@ -30,18 +19,9 @@ interface MetaAsset {
   credential: { status: string; lastValidatedAt: string | null } | null;
 }
 
-interface Diagnostics {
-  signatureFailures: { total: number; last24h: number };
-  lastEventAt: string | null;
-  subscriptions: Array<{
-    id: string;
-    assetName: string;
-    assetPlatform: string;
-    object: string;
-    subscribedFields: string[];
-    subscriptionStatus: string;
-    lastEventAt: string | null;
-  }>;
+interface MetaPublicConfig {
+  appId: string | null;
+  hasAppSecret: boolean;
 }
 
 const C = UI.connections;
@@ -58,7 +38,6 @@ function statusClasses(status: string): string {
   return "border-border bg-slate-50 text-slate-600";
 }
 
-/** Full-page navigation to an API URL that answers with a 302 (OAuth handoff). */
 function go(url: string) {
   window.location.assign(new URL(url, window.location.origin).href);
 }
@@ -68,9 +47,8 @@ function ConnectionsInner() {
   const oauthResult = searchParams.get("oauth");
   const oauthCode = searchParams.get("code");
 
-  const [config, setConfig] = useState<MetaConfig | null>(null);
   const [assets, setAssets] = useState<MetaAsset[]>([]);
-  const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
+  const [isConfigured, setIsConfigured] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(() => {
@@ -78,27 +56,17 @@ function ConnectionsInner() {
     if (oauthResult === "error") return `${C.connect.failed} (${oauthCode ?? ""})`;
     return null;
   });
-  const [saving, setSaving] = useState(false);
-
-  const [appId, setAppId] = useState("");
-  const [graphVersion, setGraphVersion] = useState("");
-  const [proofEnabled, setProofEnabled] = useState(true);
-  const [appSecret, setAppSecret] = useState("");
-  const [verifyToken, setVerifyToken] = useState("");
 
   const loadAll = useCallback(async () => {
     try {
-      const [cfg, assetList, diag] = await Promise.all([
-        getJson<MetaConfig>("/api/v1/meta/config"),
+      const [cfg, assetList] = await Promise.all([
+        getJson<MetaPublicConfig>("/api/v1/meta/config").catch(() => null),
         getJson<{ items: MetaAsset[] }>("/api/v1/meta/assets"),
-        getJson<Diagnostics>("/api/v1/meta/webhooks/diagnostics"),
       ]);
-      setConfig(cfg);
-      setAppId(cfg.appId ?? "");
-      setGraphVersion(cfg.graphApiVersion);
-      setProofEnabled(cfg.proofEnabled);
+      if (cfg) {
+        setIsConfigured(Boolean(cfg.appId && cfg.hasAppSecret));
+      }
       setAssets(assetList.items);
-      setDiagnostics(diag);
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : C.error);
@@ -110,18 +78,15 @@ function ConnectionsInner() {
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      getJson<MetaConfig>("/api/v1/meta/config"),
+      getJson<MetaPublicConfig>("/api/v1/meta/config").catch(() => null),
       getJson<{ items: MetaAsset[] }>("/api/v1/meta/assets"),
-      getJson<Diagnostics>("/api/v1/meta/webhooks/diagnostics"),
     ])
-      .then(([cfg, assetList, diag]) => {
+      .then(([cfg, assetList]) => {
         if (cancelled) return;
-        setConfig(cfg);
-        setAppId(cfg.appId ?? "");
-        setGraphVersion(cfg.graphApiVersion);
-        setProofEnabled(cfg.proofEnabled);
+        if (cfg) {
+          setIsConfigured(Boolean(cfg.appId && cfg.hasAppSecret));
+        }
         setAssets(assetList.items);
-        setDiagnostics(diag);
         setError(null);
       })
       .catch((err: unknown) => {
@@ -135,31 +100,6 @@ function ConnectionsInner() {
       cancelled = true;
     };
   }, []);
-
-  async function saveConfig(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSaving(true);
-    setNotice(null);
-    setError(null);
-    try {
-      const body: Record<string, unknown> = {
-        appId: appId.trim(),
-        graphApiVersion: graphVersion.trim(),
-        appsecretProofEnabled: proofEnabled,
-      };
-      if (appSecret.trim()) body.appSecret = appSecret.trim();
-      if (verifyToken.trim()) body.webhookVerifyToken = verifyToken.trim();
-      const updated = await putJson<MetaConfig>("/api/v1/meta/config", body);
-      setConfig(updated);
-      setAppSecret("");
-      setVerifyToken("");
-      setNotice(C.config.saved);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : C.saveError);
-    } finally {
-      setSaving(false);
-    }
-  }
 
   async function setAssetSelected(asset: MetaAsset, selected: boolean) {
     try {
@@ -215,301 +155,151 @@ function ConnectionsInner() {
   const needsReauth = assets.some((a) => a.connectionStatus === "reauth_required");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl">
       <div>
-        <h1 className="text-2xl font-semibold">الاتصالات</h1>
-        <p className="mt-2 max-w-2xl text-sm text-slate-500">{C.subtitle}</p>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">اتصالات فيسبوك وإنستغرام</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          اربط صفحاتك وحساباتك بسهولة بضغطة زر لبدء تشغيل الردود التلقائية على التعليقات والرسائل الخاصة.
+        </p>
       </div>
 
-      {notice ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+      {notice && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           {notice}
         </div>
-      ) : null}
-      {error ? (
-        <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      )}
+      {error && (
+        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </p>
-      ) : null}
-      {needsReauth ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      )}
+      {needsReauth && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           {C.banner.reauth}
         </div>
-      ) : null}
+      )}
 
-      <section className="rounded-2xl border border-border bg-card p-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold">{C.config.title}</h2>
-          <button
-            type="button"
-            onClick={() => go("/api/v1/meta/oauth/start")}
-            className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-          >
-            {C.connect.action}
-          </button>
-        </div>
-        <p className="mb-4 text-sm text-slate-500">{C.connect.hint}</p>
-
-        {config && !config.encryptionKeyConfigured ? (
-          <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            {C.config.encryptionMissing}
-          </p>
-        ) : null}
-
-        <form onSubmit={saveConfig} className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label htmlFor="app-id" className="mb-1.5 block text-sm font-medium">
-              {C.config.appId}
-            </label>
-            <input
-              id="app-id"
-              dir="ltr"
-              value={appId}
-              onChange={(e) => setAppId(e.target.value)}
-              required
-              maxLength={32}
-              className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm outline-none focus:border-brand"
-            />
-          </div>
-          <div>
-            <label htmlFor="graph-version" className="mb-1.5 block text-sm font-medium">
-              {C.config.graphVersion}
-            </label>
-            <input
-              id="graph-version"
-              dir="ltr"
-              value={graphVersion}
-              onChange={(e) => setGraphVersion(e.target.value)}
-              required
-              maxLength={16}
-              className="w-full rounded-lg border border-border bg-white px-3 py-2.5 font-mono text-sm outline-none focus:border-brand"
-            />
-          </div>
-          <div>
-            <label htmlFor="app-secret" className="mb-1.5 block text-sm font-medium">
-              {C.config.appSecret}
-            </label>
-            <input
-              id="app-secret"
-              dir="ltr"
-              type="password"
-              value={appSecret}
-              onChange={(e) => setAppSecret(e.target.value)}
-              placeholder={C.config.appSecretPlaceholder}
-              maxLength={512}
-              className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm outline-none focus:border-brand"
-            />
-            <p className="mt-1 text-xs text-slate-500">
-              {config?.hasAppSecret ? C.config.appSecretSet : C.config.appSecretUnset}
+      {/* Main Facebook Connect Action Card */}
+      <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="space-y-1">
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <span className="text-[#1877F2]">📘</span>
+              <span>ربط الحسابات والصفحات عبر فيسبوك</span>
+            </h2>
+            <p className="text-xs text-slate-500 max-w-xl leading-relaxed">
+              عند الضغط على الزر، سيتم توجيهك إلى فيسبوك لتسجيل الدخول واختيار الصفحات وحسابات إنستغرام التي ترغب في ربطها بالمنصة مع منح صلاحيات قراءة التعليقات والرد عليها.
             </p>
           </div>
+
           <div>
-            <label htmlFor="verify-token" className="mb-1.5 block text-sm font-medium">
-              {C.config.verifyToken}
-            </label>
-            <input
-              id="verify-token"
-              dir="ltr"
-              type="password"
-              value={verifyToken}
-              onChange={(e) => setVerifyToken(e.target.value)}
-              placeholder={C.config.verifyTokenPlaceholder}
-              maxLength={256}
-              className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm outline-none focus:border-brand"
-            />
-            <p className="mt-1 text-xs text-slate-500">
-              {config?.hasVerifyToken ? C.config.verifyTokenSet : C.config.verifyTokenUnset}
-            </p>
-          </div>
-          <label className="flex items-center gap-2 text-sm md:col-span-2">
-            <input
-              type="checkbox"
-              checked={proofEnabled}
-              onChange={(e) => setProofEnabled(e.target.checked)}
-              className="h-4 w-4 rounded border-border"
-            />
-            {C.config.proofEnabled}
-          </label>
-          <div className="md:col-span-2">
             <button
-              type="submit"
-              disabled={saving}
-              className="rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+              type="button"
+              disabled={!isConfigured}
+              onClick={() => go("/api/v1/meta/oauth/start")}
+              className="w-full sm:w-auto flex items-center justify-center gap-2.5 rounded-xl bg-[#1877F2] px-6 py-3 text-sm font-bold text-white hover:bg-[#166fe5] shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {saving ? C.config.saving : C.config.save}
+              <svg className="h-5 w-5 fill-current" viewBox="0 0 24 24">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+              </svg>
+              <span>ربط صفحة فيسبوك أو إنستغرام</span>
             </button>
           </div>
-        </form>
+        </div>
 
-        {config ? (
-          <div className="mt-5 space-y-3 border-t border-border pt-4 text-sm">
-            <div>
-              <p className="font-medium">{C.config.redirectUri}</p>
-              <p dir="ltr" className="mt-1 break-all rounded-lg border border-border bg-slate-50 px-3 py-2 font-mono">
-                {config.redirectUri}
-              </p>
-            </div>
-            <div>
-              <p className="font-medium">{C.config.webhookUrl}</p>
-              <p dir="ltr" className="mt-1 break-all rounded-lg border border-border bg-slate-50 px-3 py-2 font-mono">
-                {config.webhookCallbackUrl}
-              </p>
-            </div>
-          </div>
-        ) : null}
+        {!isConfigured && (
+          <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+            خدمة الربط مع فيسبوك غير مفعلة حالياً من قِبل إدارة المنصة. يرجى التواصل مع الدعم الفني.
+          </p>
+        )}
       </section>
 
-      <section className="rounded-2xl border border-border bg-card p-6">
-        <h2 className="mb-4 text-lg font-semibold">{C.assets.title}</h2>
+      {/* Connected Assets List */}
+      <section className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-border pb-3">
+          <h2 className="text-base font-bold text-foreground">{C.assets.title}</h2>
+          <span className="text-xs text-slate-400 font-semibold">{assets.length} صفحة مربوطة</span>
+        </div>
+
         {assets.length === 0 ? (
-          <p className="text-sm text-slate-500">{C.assets.empty}</p>
+          <div className="py-8 text-center text-slate-400 space-y-2">
+            <span className="text-3xl block">📭</span>
+            <p className="text-sm font-semibold text-slate-600">{C.assets.empty}</p>
+            <p className="text-xs text-slate-400">
+              اضغط على زر &ldquo;ربط صفحة فيسبوك أو إنستغرام&rdquo; أعلاه لاختيار صفحاتك وبدء تشغيل الردود.
+            </p>
+          </div>
         ) : (
           <ul className="space-y-3">
             {assets.map((asset) => (
-              <li key={asset.id} className="rounded-xl border border-border bg-white p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{asset.displayName}</span>
-                  <span className="rounded-full border border-border bg-slate-50 px-2 py-0.5 text-xs text-slate-600">
-                    {asset.platform === "instagram"
-                      ? C.assets.platformInstagram
-                      : C.assets.platformFacebook}
-                  </span>
+              <li key={asset.id} className="rounded-xl border border-border bg-white p-4 transition shadow-2xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{asset.platform === "instagram" ? "📸" : "📘"}</span>
+                    <span className="font-bold text-sm text-foreground">{asset.displayName}</span>
+                    <span className="rounded-full border border-border bg-slate-50 px-2 py-0.5 text-xs text-slate-600">
+                      {asset.platform === "instagram" ? C.assets.platformInstagram : C.assets.platformFacebook}
+                    </span>
+                    <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${statusClasses(asset.connectionStatus)}`}>
+                      {statusLabel(asset.connectionStatus)}
+                    </span>
+                  </div>
+
                   <span
-                    className={`rounded-full border px-2 py-0.5 text-xs ${statusClasses(asset.connectionStatus)}`}
-                  >
-                    {statusLabel(asset.connectionStatus)}
-                  </span>
-                  <span
-                    className={`rounded-full border px-2 py-0.5 text-xs ${
+                    className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
                       asset.selected
                         ? "border-brand/30 bg-brand/10 text-brand"
                         : "border-border bg-slate-50 text-slate-500"
                     }`}
                   >
-                    {asset.selected ? C.assets.selected : C.assets.notSelected}
+                    {asset.selected ? "نشطة للأتمتة ✓" : "غير مفعلة"}
                   </span>
                 </div>
-                <dl className="mt-3 grid gap-1 text-xs text-slate-500 md:grid-cols-2">
-                  <div className="flex gap-2">
-                    <dt className="font-medium">{C.assets.externalId}:</dt>
-                    <dd dir="ltr" className="font-mono">
-                      {asset.externalId}
-                    </dd>
+
+                <div className="mt-3 flex items-center justify-between pt-3 border-t border-slate-100 flex-wrap gap-2 text-xs">
+                  <span className="text-slate-400">
+                    تم الربط: {new Date(asset.connectedAt).toLocaleDateString("ar-EG")}
+                  </span>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void setAssetSelected(asset, !asset.selected)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition border ${
+                        asset.selected
+                          ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                          : "border-brand bg-brand text-white hover:bg-brand/90"
+                      }`}
+                    >
+                      {asset.selected ? C.assets.unselect : C.assets.select}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void checkHealth(asset)}
+                      className="rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      {C.assets.checkHealth}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void reconnect(asset)}
+                      className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 hover:opacity-90"
+                    >
+                      {C.assets.reconnect}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void removeAsset(asset)}
+                      className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:opacity-90"
+                    >
+                      {C.assets.remove}
+                    </button>
                   </div>
-                  {asset.linkedPageId ? (
-                    <div className="flex gap-2">
-                      <dt className="font-medium">{C.assets.linkedPage}:</dt>
-                      <dd dir="ltr" className="font-mono">
-                        {asset.linkedPageId}
-                      </dd>
-                    </div>
-                  ) : null}
-                  <div className="flex gap-2">
-                    <dt className="font-medium">{C.assets.permissions}:</dt>
-                    <dd dir="ltr" className="break-all font-mono">
-                      {asset.permissionsGranted.join(", ")}
-                    </dd>
-                  </div>
-                  <div className="flex gap-2">
-                    <dt className="font-medium">{C.assets.lastHealth}:</dt>
-                    <dd>
-                      {asset.lastHealthCheckAt
-                        ? new Date(asset.lastHealthCheckAt).toLocaleString("ar-EG")
-                        : C.assets.never}
-                    </dd>
-                  </div>
-                </dl>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void setAssetSelected(asset, !asset.selected)}
-                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
-                  >
-                    {asset.selected ? C.assets.unselect : C.assets.select}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void checkHealth(asset)}
-                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
-                  >
-                    {C.assets.checkHealth}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void reconnect(asset)}
-                    className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 hover:opacity-90"
-                  >
-                    {C.assets.reconnect}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void removeAsset(asset)}
-                    className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:opacity-90"
-                  >
-                    {C.assets.remove}
-                  </button>
                 </div>
               </li>
             ))}
           </ul>
         )}
-      </section>
-
-      <section className="rounded-2xl border border-border bg-card p-6">
-        <h2 className="mb-1 text-lg font-semibold">{C.diagnostics.title}</h2>
-        <p className="mb-4 text-sm text-slate-500">
-          {diagnostics && config?.hasVerifyToken && config?.hasAppSecret
-            ? C.diagnostics.configured
-            : C.diagnostics.notConfigured}
-        </p>
-        {diagnostics ? (
-          <div className="grid gap-3 text-sm md:grid-cols-3">
-            <div className="rounded-lg border border-border bg-white p-3">
-              <p className="text-xs text-slate-500">{C.diagnostics.signatureFailures}</p>
-              <p className="mt-1 text-lg font-semibold" dir="ltr">
-                {diagnostics.signatureFailures.total}
-              </p>
-            </div>
-            <div className="rounded-lg border border-border bg-white p-3">
-              <p className="text-xs text-slate-500">{C.diagnostics.signatureFailures24h}</p>
-              <p className="mt-1 text-lg font-semibold" dir="ltr">
-                {diagnostics.signatureFailures.last24h}
-              </p>
-            </div>
-            <div className="rounded-lg border border-border bg-white p-3">
-              <p className="text-xs text-slate-500">{C.diagnostics.lastEvent}</p>
-              <p className="mt-1 text-sm font-medium">
-                {diagnostics.lastEventAt
-                  ? new Date(diagnostics.lastEventAt).toLocaleString("ar-EG")
-                  : C.diagnostics.never}
-              </p>
-            </div>
-          </div>
-        ) : null}
-        {diagnostics && diagnostics.subscriptions.length > 0 ? (
-          <ul className="mt-4 space-y-2">
-            {diagnostics.subscriptions.map((sub) => (
-              <li key={sub.id} className="rounded-lg border border-border bg-white px-3 py-2 text-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{sub.assetName}</span>
-                  <span className="text-xs text-slate-500">
-                    {sub.object === "instagram"
-                      ? C.assets.platformInstagram
-                      : C.assets.platformFacebook}
-                  </span>
-                  <span className="rounded-full border border-border bg-slate-50 px-2 py-0.5 text-xs">
-                    {sub.subscriptionStatus}
-                  </span>
-                </div>
-                <p dir="ltr" className="mt-1 font-mono text-xs text-slate-500">
-                  {sub.subscribedFields.join(", ")}
-                </p>
-              </li>
-            ))}
-          </ul>
-        ) : diagnostics ? (
-          <p className="mt-4 text-sm text-slate-500">{C.diagnostics.noSubscriptions}</p>
-        ) : null}
       </section>
     </div>
   );

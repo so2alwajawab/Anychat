@@ -160,6 +160,66 @@ function SidebarNav({
   onLogout: () => void;
   loggingOut: boolean;
 }) {
+  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
+
+  if (isAdminRoute && user.platformAdmin) {
+    return (
+      <>
+        <div className="px-4 py-2">
+          <div className="rounded-xl bg-brand/15 border border-brand/30 px-3 py-2 text-xs font-bold text-white flex items-center justify-between">
+            <span>لوحة إدارة المنصة</span>
+            <span className="text-[10px] bg-brand text-white rounded px-1.5 py-0.5">إدارة</span>
+          </div>
+        </div>
+
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
+          {ADMIN_NAV_ITEMS.map((item) => {
+            const active =
+              pathname === item.href || pathname.startsWith(`${item.href}/`);
+            return (
+              <Link
+                key={item.slug}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                onClick={onNavigate}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+                  active
+                    ? "bg-sidebar-active text-white"
+                    : "text-sidebar-foreground hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <AdminNavIcon slug={item.slug} />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="px-3 py-3 border-t border-white/10 space-y-2">
+          <Link
+            href="/dashboard"
+            onClick={onNavigate}
+            className="flex items-center justify-between rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-xs text-sidebar-foreground hover:bg-white/10 hover:text-white transition"
+          >
+            <span>مساحة عمل العميل</span>
+            <span>←</span>
+          </Link>
+          <div className="truncate text-xs text-sidebar-muted px-1" title={user.username}>
+            {user.username}
+          </div>
+          <button
+            type="button"
+            onClick={onLogout}
+            disabled={loggingOut}
+            className="text-xs text-sidebar-muted hover:text-white disabled:opacity-60 px-1"
+          >
+            {UI.logout}
+          </button>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
@@ -185,31 +245,19 @@ function SidebarNav({
         })}
 
         {user.platformAdmin && (
-          <>
-            <div className="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-sidebar-muted">
-              {UI.admin.navLabel}
-            </div>
-            {ADMIN_NAV_ITEMS.map((item) => {
-              const active =
-                pathname === item.href || pathname.startsWith(`${item.href}/`);
-              return (
-                <Link
-                  key={item.slug}
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  onClick={onNavigate}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                    active
-                      ? "bg-sidebar-active text-white"
-                      : "text-sidebar-foreground hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  <AdminNavIcon slug={item.slug} />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </>
+          <div className="pt-4">
+            <Link
+              href="/admin"
+              onClick={onNavigate}
+              className="flex items-center justify-between rounded-xl bg-brand/20 border border-brand/40 px-3.5 py-2.5 text-xs font-bold text-white hover:bg-brand/30 transition shadow-xs"
+            >
+              <div className="flex items-center gap-2">
+                <span>🛡️</span>
+                <span>لوحة تحكم المنصة</span>
+              </div>
+              <span>←</span>
+            </Link>
+          </div>
         )}
       </nav>
 

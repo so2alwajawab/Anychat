@@ -19,6 +19,7 @@ pnpm-debug.log*
 backups/
 *.dump
 *.rdb
+/Public/
 
 # editor / OS
 .DS_Store
