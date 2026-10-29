@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { MetaModule } from '../meta/meta.module.js';
 import { AdminBootstrap } from './admin.bootstrap.js';
 import { AdminController } from './controller.js';
 import { AdminService } from './admin.service.js';
@@ -9,6 +10,7 @@ import { AdminService } from './admin.service.js';
  * globally unscoped (no tenant ALS binding).
  */
 @Module({
+  imports: [MetaModule],
   controllers: [AdminController],
   providers: [AdminService, AdminBootstrap],
 })

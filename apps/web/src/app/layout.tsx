@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { TrackingScripts } from "@/components/tracking-scripts";
 import "./globals.css";
 
 const thmanyahSans = localFont({
@@ -52,6 +53,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${thmanyahSans.variable} ${notoArabic.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
+        <TrackingScripts />
         {children}
       </body>
     </html>

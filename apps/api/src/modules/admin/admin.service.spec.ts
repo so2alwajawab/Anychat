@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import { AdminService } from './admin.service.js';
 import type { PrismaService } from '../../common/prisma/prisma.module.js';
+import type { MetaConfigService } from '../meta/meta-config.service.js';
 
 const UUID_A = '11111111-1111-4111-8111-111111111111';
 const UUID_B = '22222222-2222-4222-8222-222222222222';
@@ -15,9 +16,15 @@ function mockPrisma(overrides: Record<string, unknown> = {}) {
     executionRun: { count: vi.fn() },
     workflow: { count: vi.fn() },
     auditLog: { findMany: vi.fn() },
+    systemSetting: { findUnique: vi.fn(), upsert: vi.fn() },
     ...overrides,
   };
 }
+
+const mockMetaConfig = {
+  getPublicConfig: vi.fn(),
+  update: vi.fn(),
+} as unknown as MetaConfigService;
 
 describe('AdminService (Phase 3)', () => {
   let prisma: ReturnType<typeof mockPrisma>;
@@ -25,7 +32,7 @@ describe('AdminService (Phase 3)', () => {
 
   beforeEach(() => {
     prisma = mockPrisma();
-    service = new AdminService(prisma as unknown as PrismaService);
+    service = new AdminService(prisma as unknown as PrismaService, mockMetaConfig);
   });
 
   it('overview aggregates cross-tenant KPIs and computes success rate', async () => {
@@ -65,7 +72,7 @@ describe('AdminService (Phase 3)', () => {
       workflow: { count: vi.fn().mockResolvedValue(3), findMany: vi.fn(), findUnique: vi.fn() },
       auditLog: { findMany: vi.fn() },
     });
-    service = new AdminService(prisma as unknown as PrismaService);
+    service = new AdminService(prisma as unknown as PrismaService, mockMetaConfig);
 
     const result = await service.overview();
 
@@ -188,5 +195,29 @@ describe('AdminService (Phase 3)', () => {
     expect(result.recentAudit).toHaveLength(1);
     // The raw `memberships` key is renamed to `owners` (no duplicate).
     expect(result).not.toHaveProperty('memberships');
+  });
+
+  it('getTrackingSettings returns defaults when not configured', async () => {
+    prisma.systemSetting.findUnique.mockResolvedValue(null);
+    const settings = await service.getTrackingSettings();
+    expect(settings.enabled).toBe(false);
+    expect(settings.facebookPixelId).toBe('');
+  });
+
+  it('updateTrackingSettings upserts settings into systemSetting', async () => {
+    prisma.systemSetting.findUnique.mockResolvedValue(null);
+    prisma.systemSetting.upsert.mockResolvedValue({
+      key: 'tracking_pixels',
+      value: { enabled: true, facebookPixelId: '123456789' },
+      updatedAt: new Date(),
+    });
+
+    await service.updateTrackingSettings({ enabled: true, facebookPixelId: '123456789' });
+    expect(prisma.systemSetting.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { key: 'tracking_pixels' },
+        create: expect.objectContaining({ key: 'tracking_pixels' }),
+      }),
+    );
   });
 });

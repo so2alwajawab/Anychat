@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Put, Query, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import {
   PlatformAdminOnly,
@@ -6,8 +6,9 @@ import {
 } from '../../common/decorators/platform-admin.decorator.js';
 import { AUDIT_ACTIONS } from '../audit/audit.constants.js';
 import { AuditService } from '../audit/audit.service.js';
+import { MetaConfigDto } from '../meta/dto.js';
 import { AdminService } from './admin.service.js';
-import { AdminOrgsQueryDto } from './dto.js';
+import { AdminOrgsQueryDto, UpdateTrackingSettingsDto } from './dto.js';
 
 /**
  * Phase 3 — platform-admin API (cross-tenant, read-only). The whole controller
@@ -48,5 +49,55 @@ export class AdminController {
       req,
     );
     return detail;
+  }
+
+  @Get('meta-config')
+  getMetaConfig() {
+    return this.admin.getMetaConfig();
+  }
+
+  @Put('meta-config')
+  @HttpCode(200)
+  async updateMetaConfig(@Body() dto: MetaConfigDto, @Req() req: Request) {
+    const res = await this.admin.updateMetaConfig(dto);
+    await this.audit.record(
+      {
+        action: AUDIT_ACTIONS.META_CONFIG_UPDATED,
+        actorId: req.session?.ownerId ?? null,
+        entity: 'meta_config',
+        entityId: res.id,
+        meta: {
+          appId: res.appId,
+          graphApiVersion: res.graphApiVersion,
+          appsecretProofEnabled: res.appsecretProofEnabled,
+          secretRotated: dto.appSecret !== undefined,
+          verifyTokenRotated: dto.webhookVerifyToken !== undefined,
+        },
+      },
+      req,
+    );
+    return res;
+  }
+
+  @Get('tracking')
+  getTracking() {
+    return this.admin.getTrackingSettings();
+  }
+
+  @Put('tracking')
+  @HttpCode(200)
+  async updateTracking(@Body() dto: UpdateTrackingSettingsDto, @Req() req: Request) {
+    const res = await this.admin.updateTrackingSettings(dto);
+    await this.audit.record(
+      {
+        action: 'admin.tracking.updated',
+        actorId: req.session?.ownerId ?? null,
+        entity: 'system_setting',
+        entityId: 'tracking_pixels',
+        meta: { enabled: dto.enabled },
+      },
+      req,
+    );
+    return res;
   }
 }

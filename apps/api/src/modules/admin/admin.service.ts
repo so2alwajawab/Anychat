@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.module.js';
-import { AdminOrgsQueryDto } from './dto.js';
+import type { MetaConfigDto } from '../meta/dto.js';
+import { MetaConfigService } from '../meta/meta-config.service.js';
+import { AdminOrgsQueryDto, UpdateTrackingSettingsDto } from './dto.js';
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -17,7 +19,10 @@ const TREND_DAYS = 14;
  */
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly metaConfig: MetaConfigService,
+  ) {}
 
   /** Platform KPIs + a 14-day comment trend + the newest organizations. */
   async overview() {
@@ -243,5 +248,68 @@ export class AdminService {
       days.push({ day: key, count: counts.get(key) ?? 0 });
     }
     return days;
+  }
+
+  /** Retrieve public Meta App configuration. */
+  async getMetaConfig() {
+    return this.metaConfig.getPublicConfig();
+  }
+
+  /** Update Meta App configuration with secure encryption. */
+  async updateMetaConfig(dto: MetaConfigDto) {
+    return this.metaConfig.update(dto);
+  }
+
+  /** Retrieve marketing and analytics tracking pixels configuration. */
+  async getTrackingSettings() {
+    const row = await this.prisma.systemSetting.findUnique({
+      where: { key: 'tracking_pixels' },
+    });
+    if (!row || !row.value) {
+      return {
+        enabled: false,
+        facebookPixelId: '',
+        googleAnalyticsId: '',
+        googleTagManagerId: '',
+        tiktokPixelId: '',
+        snapchatPixelId: '',
+        customHeadScripts: '',
+        customBodyScripts: '',
+      };
+    }
+    const val = row.value as Record<string, unknown>;
+    return {
+      enabled: Boolean(val.enabled),
+      facebookPixelId: (val.facebookPixelId as string) || '',
+      googleAnalyticsId: (val.googleAnalyticsId as string) || '',
+      googleTagManagerId: (val.googleTagManagerId as string) || '',
+      tiktokPixelId: (val.tiktokPixelId as string) || '',
+      snapchatPixelId: (val.snapchatPixelId as string) || '',
+      customHeadScripts: (val.customHeadScripts as string) || '',
+      customBodyScripts: (val.customBodyScripts as string) || '',
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  /** Update marketing and analytics tracking pixels configuration. */
+  async updateTrackingSettings(dto: UpdateTrackingSettingsDto) {
+    const existing = await this.prisma.systemSetting.findUnique({
+      where: { key: 'tracking_pixels' },
+    });
+    const currentVal = (existing?.value as Record<string, unknown>) || {};
+    const merged = {
+      ...currentVal,
+      ...dto,
+    };
+    return this.prisma.systemSetting.upsert({
+      where: { key: 'tracking_pixels' },
+      create: {
+        key: 'tracking_pixels',
+        value: merged,
+      },
+      update: {
+        value: merged,
+      },
+    });
   }
 }

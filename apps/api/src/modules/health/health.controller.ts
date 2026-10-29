@@ -33,4 +33,29 @@ export class HealthController {
     if (!ready) throw new HttpException(body, 503);
     return body;
   }
+
+  @Public()
+  @Get('system/tracking')
+  async getPublicTracking() {
+    const row = await this.prisma.systemSetting.findUnique({
+      where: { key: 'tracking_pixels' },
+    });
+    if (!row || !row.value) {
+      return { enabled: false };
+    }
+    const val = row.value as Record<string, unknown>;
+    if (!val.enabled) {
+      return { enabled: false };
+    }
+    return {
+      enabled: true,
+      facebookPixelId: (val.facebookPixelId as string) || null,
+      googleAnalyticsId: (val.googleAnalyticsId as string) || null,
+      googleTagManagerId: (val.googleTagManagerId as string) || null,
+      tiktokPixelId: (val.tiktokPixelId as string) || null,
+      snapchatPixelId: (val.snapchatPixelId as string) || null,
+      customHeadScripts: (val.customHeadScripts as string) || null,
+      customBodyScripts: (val.customBodyScripts as string) || null,
+    };
+  }
 }
