@@ -182,6 +182,12 @@ export class ExecutionService {
         chosenHandle = conditionMet ? 'true' : 'false';
       } else if (nextNode.type === 'action.public_reply' || nextNode.type === 'action.use_template') {
         let rawMessage = '';
+        const replyNodeData = (nextNode.data ?? {}) as {
+          message?: string;
+          messages?: string[];
+          imageUrl?: string;
+        };
+
         if (nextNode.type === 'action.use_template') {
           const tplData = (nextNode.data ?? {}) as { templateId?: string };
           if (tplData.templateId) {
@@ -191,7 +197,13 @@ export class ExecutionService {
             rawMessage = tmpl?.body || '';
           }
         } else {
-          rawMessage = ((nextNode.data ?? {}) as { message?: string }).message || '';
+          const list =
+            Array.isArray(replyNodeData.messages) && replyNodeData.messages.length > 0
+              ? replyNodeData.messages.filter((m) => typeof m === 'string' && m.trim().length > 0)
+              : replyNodeData.message
+              ? [replyNodeData.message]
+              : [];
+          rawMessage = list.length > 0 ? list[Math.floor(Math.random() * list.length)]! : replyNodeData.message || '';
         }
 
         const rendered = renderVariables(rawMessage, variableContext);
@@ -215,7 +227,6 @@ export class ExecutionService {
           break;
         }
 
-        const replyNodeData = (nextNode.data ?? {}) as { message?: string; imageUrl?: string };
         const outboundResult = await this.outbound.executePublicReply({
           runId,
           assetId: comment.assetId,
@@ -251,7 +262,12 @@ export class ExecutionService {
         }
       } else if (nextNode.type === 'action.private_reply') {
         let rawMessage = '';
-        const nodeData = (nextNode.data ?? {}) as { message?: string; templateId?: string; imageUrl?: string };
+        const nodeData = (nextNode.data ?? {}) as {
+          message?: string;
+          templateId?: string;
+          imageUrl?: string;
+          buttons?: Array<{ label: string; url: string; type?: string }>;
+        };
         if (nodeData.templateId) {
           const tmpl = await this.prisma.messageTemplate.findUnique({
             where: { id: nodeData.templateId },
@@ -261,7 +277,17 @@ export class ExecutionService {
           rawMessage = nodeData.message || '';
         }
 
-        const rendered = renderVariables(rawMessage, variableContext);
+        let rendered = renderVariables(rawMessage, variableContext);
+
+        if (Array.isArray(nodeData.buttons) && nodeData.buttons.length > 0) {
+          const validButtons = nodeData.buttons.filter(
+            (b) => b && typeof b.label === 'string' && b.label.trim() && typeof b.url === 'string' && b.url.trim(),
+          );
+          if (validButtons.length > 0) {
+            const btnList = validButtons.map((b) => `👉 ${b.label.trim()}: ${b.url.trim()}`).join('\n');
+            rendered = `${rendered}\n\n${btnList}`;
+          }
+        }
 
         const outboundResult = await this.outbound.executePrivateReply({
           runId,

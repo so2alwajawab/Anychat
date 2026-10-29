@@ -51,6 +51,8 @@ export const TriggerDataSchema = z.object({
     })
     .default({ mode: 'all', postExternalIds: [] }),
   includeReplies: z.boolean().default(false),
+  matchType: z.enum(['all_comments', 'keywords']).default('keywords'),
+  excludeKeywords: z.array(z.string()).default([]),
 });
 export type TriggerData = z.infer<typeof TriggerDataSchema>;
 
@@ -74,15 +76,26 @@ export const ConditionAssetPostDataSchema = z.object({
 export type ConditionAssetPostData = z.infer<typeof ConditionAssetPostDataSchema>;
 
 export const ActionPublicReplyDataSchema = z.object({
-  message: z.string().min(1, 'نص الرد العام مطلوب'),
+  message: z.string().optional(),
+  messages: z.array(z.string()).default([]),
   imageUrl: z.string().optional(),
+  autoLike: z.boolean().default(false),
 });
 export type ActionPublicReplyData = z.infer<typeof ActionPublicReplyDataSchema>;
+
+export const ActionButtonSchema = z.object({
+  id: z.string().optional(),
+  label: z.string().min(1, 'نص الزر مطلوب'),
+  type: z.enum(['url', 'whatsapp', 'phone']).default('url'),
+  url: z.string().min(1, 'رابط الزر مطلوب'),
+});
+export type ActionButton = z.infer<typeof ActionButtonSchema>;
 
 export const ActionPrivateReplyDataSchema = z.object({
   message: z.string().optional(),
   templateId: z.string().optional(),
   imageUrl: z.string().optional(),
+  buttons: z.array(ActionButtonSchema).default([]),
 });
 export type ActionPrivateReplyData = z.infer<typeof ActionPrivateReplyDataSchema>;
 

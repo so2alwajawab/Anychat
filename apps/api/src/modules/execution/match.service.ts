@@ -58,6 +58,7 @@ export class MatchService {
         platform?: string;
         assetIds?: string[];
         includeReplies?: boolean;
+        excludeKeywords?: string[];
         postScope?: { mode?: string; postExternalIds?: string[] };
       };
 
@@ -69,6 +70,17 @@ export class MatchService {
       // Filter by assetIds
       if (triggerData.assetIds && triggerData.assetIds.length > 0 && !triggerData.assetIds.includes(comment.assetId)) {
         continue;
+      }
+
+      // Filter by excluded keywords
+      if (Array.isArray(triggerData.excludeKeywords) && triggerData.excludeKeywords.length > 0) {
+        const commentText = (comment.text || '').toLowerCase();
+        const hasExcluded = triggerData.excludeKeywords.some(
+          (kw) => typeof kw === 'string' && kw.trim() && commentText.includes(kw.trim().toLowerCase()),
+        );
+        if (hasExcluded) {
+          continue;
+        }
       }
 
       // Filter by top-level replies

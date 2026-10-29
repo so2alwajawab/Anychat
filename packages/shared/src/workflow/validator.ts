@@ -240,15 +240,23 @@ export function validateWorkflowDefinition(
       }
 
       case 'action.public_reply': {
-        const message = data.message;
-        if (!message || typeof message !== 'string' || message.trim().length === 0) {
+        const message = typeof data.message === 'string' ? data.message.trim() : '';
+        const messages = Array.isArray(data.messages)
+          ? (data.messages as unknown[]).filter((m): m is string => typeof m === 'string' && m.trim().length > 0)
+          : [];
+        if (!message && messages.length === 0) {
           errors.push({
             nodeId: node.id,
             field: 'message',
             message: `نص الرد العام مطلوب في العقدة (${node.id})`,
           });
         } else {
-          errors.push(...validateTemplateVariables(message, node.id));
+          if (message) {
+            errors.push(...validateTemplateVariables(message, node.id));
+          }
+          for (const m of messages) {
+            errors.push(...validateTemplateVariables(m, node.id));
+          }
         }
         break;
       }

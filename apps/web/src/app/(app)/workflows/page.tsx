@@ -16,7 +16,6 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
-  ALLOW_LISTED_VARIABLES,
   validateWorkflowDefinition,
   type MatchKind,
   type WorkflowDefinition,
@@ -24,6 +23,9 @@ import {
 } from "@anychat/shared";
 import { ApiError, delJson, getJson, postJson, putJson } from "@/lib/api";
 import { workflowNodeTypes } from "@/components/workflow/custom-nodes";
+import { MANYCHAT_FLOW_TEMPLATES, type FlowTemplate } from "@/components/workflow/flow-templates";
+import { autoLayoutNodes } from "@/components/workflow/auto-layout";
+import { PhonePreview } from "@/components/workflow/phone-preview";
 
 interface WorkflowListItem {
   id: string;
@@ -103,16 +105,6 @@ const KEYWORD_PRESETS = [
   },
 ];
 
-function simulateMessage(text?: string) {
-  if (!text) return "اكتب نص الرد في الحقل أعلاه لمعاينة كيف سيظهر للعميل...";
-  return text
-    .replace(/\{\{commenter_name\}\}/g, "أحمد محمود")
-    .replace(/\{\{comment_text\}\}/g, "بكام الطقم ده وهل متوفر شحن للقاهرة؟")
-    .replace(/\{\{page_name\}\}/g, "متجر الأناقة")
-    .replace(/\{\{current_date\}\}/g, new Date().toLocaleDateString("ar-EG"))
-    .replace(/\{\{post\.permalink\}\}/g, "https://facebook.com/posts/1029384756");
-}
-
 export default function WorkflowsPage() {
   const [view, setView] = useState<"list" | "builder">("list");
   const [workflows, setWorkflows] = useState<WorkflowListItem[]>([]);
@@ -148,6 +140,14 @@ export default function WorkflowsPage() {
   const [isPostPickerOpen, setIsPostPickerOpen] = useState(false);
   const [postSearch, setPostSearch] = useState("");
   const [postPlatformFilter, setPostPlatformFilter] = useState<"all" | "facebook" | "instagram">("all");
+
+  // ManyChat Features: Templates Modal, Sidebar Tabs, Negative Keywords & Action Buttons
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<"inspector" | "phone">("inspector");
+  const [newExcludeKeyword, setNewExcludeKeyword] = useState("");
+  const [newButtonLabel, setNewButtonLabel] = useState("");
+  const [newButtonType, setNewButtonType] = useState<"url" | "whatsapp" | "phone">("url");
+  const [newButtonUrl, setNewButtonUrl] = useState("");
 
   // Keyword input state in Condition Inspector
   const [newKeywordInput, setNewKeywordInput] = useState("");
@@ -525,6 +525,32 @@ export default function WorkflowsPage() {
     setSelectedNodeId(null);
   };
 
+  const handleApplyTemplate = (tpl: FlowTemplate) => {
+    setNodes(tpl.nodes);
+    setEdges(tpl.edges);
+    if (!workflowName || workflowName === "مخطط أتمتة جديد") {
+      setWorkflowName(tpl.title);
+    }
+    if (tpl.description && !workflowDesc) {
+      setWorkflowDesc(tpl.description);
+    }
+    setIsTemplateModalOpen(false);
+    setSelectedNodeId(tpl.nodes[0]?.id ?? null);
+    setStatusMessage({
+      type: "success",
+      text: `تم استيراد قالب "${tpl.title}" بنجاح وتجهيزه على اللوحة!`,
+    });
+  };
+
+  const handleAutoLayout = () => {
+    if (nodes.length === 0) return;
+    setNodes((currentNodes) => autoLayoutNodes(currentNodes, edges));
+    setStatusMessage({
+      type: "success",
+      text: "تم تنظيم وترتيب العقد تلقائياً بنجاح.",
+    });
+  };
+
   return (
     <div className="space-y-6">
       {view === "list" ? (
@@ -694,6 +720,38 @@ export default function WorkflowsPage() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
+                onClick={() => setIsTemplateModalOpen(true)}
+                className="rounded-xl border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-bold text-purple-700 hover:bg-purple-100 transition shadow-2xs flex items-center gap-1.5"
+              >
+                <span>⚡</span>
+                <span>قوالب جاهزة (ManyChat)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleAutoLayout}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs flex items-center gap-1"
+                title="إعادة تنظيم وترتيب العقد تلقائياً"
+              >
+                <span>🪄</span>
+                <span>ترتيب تلقائي</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSidebarTab(sidebarTab === "phone" ? "inspector" : "phone")}
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition shadow-2xs flex items-center gap-1 border ${
+                  sidebarTab === "phone"
+                    ? "bg-brand text-white border-brand"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                <span>📱</span>
+                <span>محاكي الموبايل</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setIsSimOpen(true)}
                 className="rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-brand hover:bg-red-100 transition"
               >
@@ -822,16 +880,106 @@ export default function WorkflowsPage() {
               </ReactFlow>
             </div>
 
-            {/* Inspector Sidebar */}
+            {/* Inspector Sidebar / Phone Preview */}
             <div className="lg:col-span-5 xl:col-span-4 rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-col justify-between overflow-y-auto">
-              {selectedNode ? (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between border-b border-border pb-3">
-                    <h3 className="font-bold text-sm text-foreground">خصائص العقدة المحددة</h3>
-                    <span className="text-xs font-mono text-slate-400">{selectedNode.id}</span>
-                  </div>
+              <div>
+                {/* ManyChat Sidebar Tabs Switcher */}
+                <div className="flex rounded-xl bg-slate-100 p-1 mb-4 border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setSidebarTab("inspector")}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${
+                      sidebarTab === "inspector"
+                        ? "bg-white text-slate-900 shadow-xs"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    ⚙️ خصائص العقدة
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSidebarTab("phone")}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${
+                      sidebarTab === "phone"
+                        ? "bg-brand text-white shadow-xs"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    📱 محاكي الموبايل المباشر
+                  </button>
+                </div>
 
-                  {selectedNode.type === "trigger.comment" && (
+                {sidebarTab === "phone" ? (
+                  /* --- PHONE PREVIEW TAB --- */
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-border pb-2.5">
+                      <div>
+                        <h3 className="font-bold text-sm text-foreground">محاكي الموبايل التفاعلي</h3>
+                        <p className="text-[11px] text-slate-400">معاينة حية للمنشور والتعليقات ورسائل الخاص كـ ManyChat</p>
+                      </div>
+                      <span className="rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5">
+                        مباشر (Live)
+                      </span>
+                    </div>
+
+                    <PhonePreview
+                      platform={
+                        ((nodes.find((n) => n.type === "trigger.comment")?.data.platform as "facebook" | "instagram" | "all") ||
+                          "all")
+                      }
+                      pageName={activeWorkflow?.asset?.displayName || "صفحة المتجر"}
+                      commenterName="أحمد محمود"
+                      commentText={simText}
+                      publicReplyText={
+                        (Array.isArray(nodes.find((n) => n.type === "action.public_reply")?.data.messages) &&
+                          (nodes.find((n) => n.type === "action.public_reply")?.data.messages as string[])[0]) ||
+                        (nodes.find((n) => n.type === "action.public_reply")?.data.message as string) ||
+                        "أهلاً بك {{commenter_name}}، بعتنالك كل التفاصيل والأسعار في رسالة خاصة 📩"
+                      }
+                      publicReplyImage={nodes.find((n) => n.type === "action.public_reply")?.data.imageUrl as string}
+                      autoLike={Boolean(nodes.find((n) => n.type === "action.public_reply")?.data.autoLike ?? true)}
+                      privateReplyText={
+                        (nodes.find((n) => n.type === "action.private_reply")?.data.message as string) ||
+                        "أهلاً بك يا {{commenter_name}} في {{page_name}}!\n\nيسعدنا اهتمامك. السعر الحالي يبدأ من 250 جنيهاً مع شحن سريع 🚚."
+                      }
+                      privateReplyImage={nodes.find((n) => n.type === "action.private_reply")?.data.imageUrl as string}
+                      buttons={
+                        (Array.isArray(nodes.find((n) => n.type === "action.private_reply")?.data.buttons)
+                          ? (nodes.find((n) => n.type === "action.private_reply")?.data.buttons as Array<{
+                              id?: string;
+                              label: string;
+                              type?: "url" | "whatsapp" | "phone";
+                              url: string;
+                            }>)
+                          : []) || []
+                      }
+                      postPreviewText={
+                        contentPosts.find(
+                          (p) =>
+                            p.externalId ===
+                            (
+                              nodes.find((n) => n.type === "trigger.comment")?.data.postScope as {
+                                postExternalIds?: string[];
+                              }
+                            )?.postExternalIds?.[0],
+                        )?.messagePreview || "أحدث تشكيلة لعام 2026 متوفرة الآن بجميع الفروع والموقع! اطلب الآن عبر التعليقات."
+                      }
+                      onCommentChange={(t) => setSimText(t)}
+                    />
+                  </div>
+                ) : selectedNode ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-border pb-3">
+                      <div>
+                        <h3 className="font-bold text-sm text-foreground">خصائص العقدة المحددة</h3>
+                        <span className="text-xs font-mono text-slate-400">{selectedNode.id}</span>
+                      </div>
+                      <span className="text-xs rounded-lg bg-slate-100 px-2 py-0.5 font-bold text-slate-600">
+                        {selectedNode.type}
+                      </span>
+                    </div>
+
+                    {selectedNode.type === "trigger.comment" && (
                     <div className="space-y-4 text-xs">
                       {/* Platform */}
                       <div>
@@ -845,6 +993,40 @@ export default function WorkflowsPage() {
                           <option value="facebook">📘 فيسبوك فقط</option>
                           <option value="instagram">📸 إنستغرام فقط</option>
                         </select>
+                      </div>
+
+                      {/* ManyChat Trigger Match Strategy */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="font-bold text-slate-700">نمط تشغيل الردود (Trigger Matching)</label>
+                          <span className="text-[10px] text-slate-400">تحديد شروط البدء</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => updateSelectedNodeData("matchType", "all_comments")}
+                            className={`rounded-xl p-2.5 text-xs font-bold text-start transition border ${
+                              (selectedNode.data.matchType as string) === "all_comments"
+                                ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                            }`}
+                          >
+                            <span className="block mb-0.5">✨ أي تعليق (All)</span>
+                            <span className="block text-[10px] font-normal opacity-90">الرد على جميع التعليقات بلا شرط كلمات</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateSelectedNodeData("matchType", "keywords")}
+                            className={`rounded-xl p-2.5 text-xs font-bold text-start transition border ${
+                              ((selectedNode.data.matchType as string) ?? "keywords") === "keywords"
+                                ? "bg-purple-600 text-white border-purple-600 shadow-xs"
+                                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                            }`}
+                          >
+                            <span className="block mb-0.5">🎯 كلمات مفتاحية</span>
+                            <span className="block text-[10px] font-normal opacity-90">الرد فقط عند تطابق الكلمات المحددة</span>
+                          </button>
+                        </div>
                       </div>
 
                       {/* Post Scope Selection (Manychat style 3 Cards) */}
@@ -1009,6 +1191,82 @@ export default function WorkflowsPage() {
                             </div>
                           </label>
                         </div>
+                      </div>
+
+                      {/* Negative Keywords (Exclude Words) */}
+                      <div className="rounded-xl border border-rose-100 bg-rose-50/40 p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="font-bold text-slate-700 text-xs flex items-center gap-1">
+                            <span>🚫</span>
+                            <span>استبعاد تعليقات بكلمات معينة (Negative Keywords)</span>
+                          </label>
+                          <span className="text-[10px] font-bold text-rose-700">
+                            {((selectedNode.data.excludeKeywords as string[])?.length ?? 0)} كلمة
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-relaxed">
+                          لن يتم تشغيل الأتمتة إذا تضمن التعليق أياً من هذه الكلمات (مثل الشتائم أو المنافسين).
+                        </p>
+                        <div className="flex gap-1.5">
+                          <input
+                            type="text"
+                            value={newExcludeKeyword}
+                            onChange={(e) => setNewExcludeKeyword(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && newExcludeKeyword.trim()) {
+                                e.preventDefault();
+                                const current = (selectedNode.data.excludeKeywords as string[]) || [];
+                                const val = newExcludeKeyword.trim();
+                                if (!current.includes(val)) {
+                                  updateSelectedNodeData("excludeKeywords", [...current, val]);
+                                }
+                                setNewExcludeKeyword("");
+                              }
+                            }}
+                            placeholder="اكتب كلمة واضغط Enter..."
+                            className="flex-1 rounded-xl border border-border bg-white px-3 py-1.5 text-xs outline-none focus:border-brand"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!newExcludeKeyword.trim()) return;
+                              const current = (selectedNode.data.excludeKeywords as string[]) || [];
+                              const val = newExcludeKeyword.trim();
+                              if (!current.includes(val)) {
+                                updateSelectedNodeData("excludeKeywords", [...current, val]);
+                              }
+                              setNewExcludeKeyword("");
+                            }}
+                            className="rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-700 transition"
+                          >
+                            + استبعاد
+                          </button>
+                        </div>
+                        {((selectedNode.data.excludeKeywords as string[])?.length ?? 0) > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {(selectedNode.data.excludeKeywords as string[]).map((kw, i) => (
+                              <span
+                                key={i}
+                                className="inline-flex items-center gap-1 rounded-lg bg-white border border-rose-200 px-2 py-0.5 text-[11px] font-semibold text-rose-800"
+                              >
+                                <span>{kw}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const current = (selectedNode.data.excludeKeywords as string[]) || [];
+                                    updateSelectedNodeData(
+                                      "excludeKeywords",
+                                      current.filter((_, idx) => idx !== i),
+                                    );
+                                  }}
+                                  className="text-rose-400 hover:text-rose-700 font-bold"
+                                >
+                                  ✕
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       {/* Sub-replies toggle */}
@@ -1191,75 +1449,136 @@ export default function WorkflowsPage() {
                     </div>
                   )}
 
-                  {(selectedNode.type === "action.public_reply" || selectedNode.type === "action.private_reply") && (
+                  {/* PUBLIC REPLY INSPECTOR */}
+                  {selectedNode.type === "action.public_reply" && (
                     <div className="space-y-4 text-xs">
-                      {/* Message Input */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <label className="font-bold text-slate-700">
-                            {selectedNode.type === "action.public_reply" ? "نص الرد العام على التعليق" : "نص الرسالة الخاصة (Direct)"}
-                          </label>
-                          <span className="text-[11px] font-mono text-slate-400">
-                            {((selectedNode.data.message as string) ?? "").length} حرف
+                      {/* Multi-Reply Variations Banner */}
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                            <span>🎲</span>
+                            <span>تنويع الردود العشوائي (حماية ضد حظر ميتا)</span>
+                          </span>
+                          <span className="rounded-full bg-emerald-200/70 text-emerald-900 px-2 py-0.2 text-[10px] font-bold">
+                            ميزة متقدمة
                           </span>
                         </div>
-                        <textarea
-                          rows={4}
-                          value={(selectedNode.data.message as string) ?? ""}
-                          onChange={(e) => updateSelectedNodeData("message", e.target.value)}
-                          placeholder="اكتب نص الرد هنا..."
-                          className="w-full rounded-xl border border-border bg-white p-3 text-xs outline-none focus:border-brand resize-none leading-relaxed"
-                        />
+                        <p className="text-[11px] text-slate-600 leading-relaxed">
+                          أضف عدة صيغ مختلفة للرد العام، وسيختار النظام عشوائياً صيغة لكل عميل لتجنب حظر التكرار في فيسبوك وإنستغرام.
+                        </p>
                       </div>
 
-                      {/* Arabic Variable Pills (1-Click Insertion) */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="font-bold text-slate-700 text-xs">إدراج متغيرات بضغطة زر:</span>
-                          <span className="text-[10px] text-slate-400">انقر للإدراج بنص الرد</span>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {ARABIC_VARIABLES.map((v) => (
-                            <button
-                              key={v.key}
-                              type="button"
-                              title={v.desc}
-                              onClick={() => {
-                                const current = (selectedNode.data.message as string) ?? "";
-                                updateSelectedNodeData("message", `${current} {{${v.key}}} `);
-                              }}
-                              className="flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-bold text-red-700 hover:bg-red-100 hover:border-red-300 transition"
-                            >
-                              <span>{v.label}</span>
-                            </button>
-                          ))}
-                        </div>
+                      {/* Multi-messages editor */}
+                      <div className="space-y-3">
+                        {(() => {
+                          const currentMessages: string[] =
+                            Array.isArray(selectedNode.data.messages) && selectedNode.data.messages.length > 0
+                              ? (selectedNode.data.messages as string[])
+                              : selectedNode.data.message
+                              ? [selectedNode.data.message as string]
+                              : ["أهلاً بك {{commenter_name}}، تم الرد على استفسارك بنجاح!"];
 
-                        <div className="mt-2 pt-1.5 border-t border-slate-100 flex flex-wrap items-center gap-1">
-                          <span className="text-[10px] text-slate-400 font-medium">متغيرات تقنية:</span>
-                          {ALLOW_LISTED_VARIABLES.map((v) => (
-                            <button
-                              key={v}
-                              type="button"
-                              onClick={() => {
-                                const current = (selectedNode.data.message as string) ?? "";
-                                updateSelectedNodeData("message", `${current} {{${v}}} `);
-                              }}
-                              className="rounded bg-slate-100 px-1 py-0.5 text-[9px] font-mono text-slate-600 hover:bg-red-50 hover:text-brand"
-                              dir="ltr"
-                            >
-                              {`{{${v}}}`}
-                            </button>
-                          ))}
-                        </div>
+                          return (
+                            <>
+                              <div className="flex items-center justify-between">
+                                <label className="font-bold text-slate-700">
+                                  صيغ الردود العامة ({currentMessages.length})
+                                </label>
+                                {currentMessages.length < 5 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newVariation = `يا هلا بك يا {{commenter_name}}، تواصلنا معك في الخاص فوراً ✨`;
+                                      const updated = [...currentMessages, newVariation];
+                                      updateSelectedNodeData("messages", updated);
+                                      updateSelectedNodeData("message", updated[0]);
+                                    }}
+                                    className="text-emerald-700 hover:text-emerald-800 font-bold text-xs flex items-center gap-1"
+                                  >
+                                    <span>➕ إضافة صيغة رد بديلة</span>
+                                  </button>
+                                )}
+                              </div>
+
+                              {currentMessages.map((msg, idx) => (
+                                <div key={idx} className="rounded-xl border border-slate-200 bg-white p-3 space-y-2 shadow-2xs">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md">
+                                      صيغة الرد رقم #{idx + 1}
+                                    </span>
+                                    {currentMessages.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = currentMessages.filter((_, i) => i !== idx);
+                                          updateSelectedNodeData("messages", updated);
+                                          updateSelectedNodeData("message", updated[0] || "");
+                                        }}
+                                        className="text-red-500 hover:text-red-700 text-xs font-bold"
+                                        title="حذف هذه الصيغة"
+                                      >
+                                        ✕ حذف
+                                      </button>
+                                    )}
+                                  </div>
+                                  <textarea
+                                    rows={2}
+                                    value={msg}
+                                    onChange={(e) => {
+                                      const updated = [...currentMessages];
+                                      updated[idx] = e.target.value;
+                                      updateSelectedNodeData("messages", updated);
+                                      if (idx === 0) updateSelectedNodeData("message", e.target.value);
+                                    }}
+                                    placeholder="اكتب نص الرد..."
+                                    className="w-full rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-brand resize-none leading-relaxed"
+                                  />
+                                  <div className="flex flex-wrap gap-1 pt-1">
+                                    {ARABIC_VARIABLES.map((v) => (
+                                      <button
+                                        key={v.key}
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = [...currentMessages];
+                                          updated[idx] = `${updated[idx]} {{${v.key}}} `;
+                                          updateSelectedNodeData("messages", updated);
+                                          if (idx === 0) updateSelectedNodeData("message", updated[idx]);
+                                        }}
+                                        className="rounded bg-red-50 hover:bg-red-100 text-brand px-1.5 py-0.5 text-[10px] font-bold border border-red-100"
+                                      >
+                                        + {v.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </>
+                          );
+                        })()}
                       </div>
 
-                      {/* Image Attachment Section */}
+                      {/* Auto-Like Comment Toggle */}
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(selectedNode.data.autoLike ?? true)}
+                            onChange={(e) => updateSelectedNodeData("autoLike", e.target.checked)}
+                            className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                          />
+                          <div>
+                            <span className="font-bold text-slate-800 block text-xs">👍 إعجاب تلقائي بتعليق العميل (Auto-Like)</span>
+                            <span className="text-[11px] text-slate-500">وضع إعجاب على تعليق العميل لزيادة التفاعل العضوي للمنشور</span>
+                          </div>
+                        </label>
+                      </div>
+
+                      {/* Image Attachment */}
                       <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
                         <div className="flex items-center justify-between">
                           <label className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
                             <span>🖼️</span>
-                            <span>إرفاق صورة مع الرد (اختياري)</span>
+                            <span>إرفاق صورة مع الرد العام (اختياري)</span>
                           </label>
                           {(selectedNode.data.imageUrl as string) && (
                             <button
@@ -1276,7 +1595,7 @@ export default function WorkflowsPage() {
                           type="url"
                           value={(selectedNode.data.imageUrl as string) ?? ""}
                           onChange={(e) => updateSelectedNodeData("imageUrl", e.target.value.trim() || undefined)}
-                          placeholder="https://example.com/image.jpg (رابط مباشر للصورة)"
+                          placeholder="https://example.com/image.jpg"
                           className="w-full rounded-xl border border-border bg-white px-3 py-2 text-xs outline-none focus:border-brand"
                           dir="ltr"
                         />
@@ -1288,59 +1607,207 @@ export default function WorkflowsPage() {
                               src={selectedNode.data.imageUrl as string}
                               alt="معاينة الصورة المرفقة"
                               className="h-28 w-full object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLElement).style.display = "none";
-                              }}
                             />
-                            <div className="bg-slate-50 p-1.5 text-[10px] text-center text-slate-500 font-medium">
-                              ستُرسل هذه الصورة مع الرد عبر Meta Graph API
-                            </div>
                           </div>
                         )}
-                        <p className="text-[10px] text-slate-400">
-                          يدعم روابط الصور بصيغة JPG أو PNG أو WebP متوافقة مع شروط منصة Meta.
-                        </p>
                       </div>
+                    </div>
+                  )}
 
-                      {/* Live Interactive Simulation (Manychat style preview) */}
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-slate-700 text-xs">معاينة حية لشكل الرسالة عند العميل:</span>
-                          <span className="rounded-md bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[10px] font-bold">
-                            {selectedNode.type === "action.public_reply" ? "رد تعليق" : "رسالة ماسنجر"}
+                  {/* PRIVATE REPLY INSPECTOR */}
+                  {selectedNode.type === "action.private_reply" && (
+                    <div className="space-y-4 text-xs">
+                      {/* Message Input */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="font-bold text-slate-700">نص الرسالة الخاصة (Direct / Messenger)</label>
+                          <span className="text-[11px] font-mono text-slate-400">
+                            {((selectedNode.data.message as string) ?? "").length} حرف
                           </span>
                         </div>
+                        <textarea
+                          rows={4}
+                          value={(selectedNode.data.message as string) ?? ""}
+                          onChange={(e) => updateSelectedNodeData("message", e.target.value)}
+                          placeholder="اكتب رسالة الترحيب أو تفاصيل العرض هنا..."
+                          className="w-full rounded-xl border border-border bg-white p-3 text-xs outline-none focus:border-brand resize-none leading-relaxed"
+                        />
+                      </div>
 
-                        <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-2xs space-y-2">
-                          <div className="flex items-center gap-2">
-                            <div className="h-7 w-7 rounded-full bg-brand text-white flex items-center justify-center font-bold text-xs">
-                              أ
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-1">
-                                <span className="font-bold text-slate-800 text-xs">صفحة المتجر</span>
-                                <span className="text-brand text-xs">✔</span>
-                              </div>
-                              <span className="text-[10px] text-slate-400">الآن</span>
-                            </div>
-                          </div>
+                      {/* Arabic Variable Pills */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="font-bold text-slate-700 text-xs">إدراج متغيرات بالرسالة:</span>
+                          <span className="text-[10px] text-slate-400">انقر للإدراج</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {ARABIC_VARIABLES.map((v) => (
+                            <button
+                              key={v.key}
+                              type="button"
+                              title={v.desc}
+                              onClick={() => {
+                                const current = (selectedNode.data.message as string) ?? "";
+                                updateSelectedNodeData("message", `${current} {{${v.key}}} `);
+                              }}
+                              className="flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-bold text-red-700 hover:bg-red-100 transition"
+                            >
+                              <span>{v.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
 
-                          {/* Simulated message text with variables replaced */}
-                          <p className="text-xs text-slate-800 leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                            {simulateMessage((selectedNode.data.message as string) ?? "")}
-                          </p>
-
-                          {/* Simulated attached image */}
+                      {/* Image Attachment */}
+                      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
+                            <span>🖼️</span>
+                            <span>إرفاق صورة أو بروشور بالرسالة (اختياري)</span>
+                          </label>
                           {(selectedNode.data.imageUrl as string) && (
-                            <div className="overflow-hidden rounded-lg border border-slate-200">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={selectedNode.data.imageUrl as string}
-                                alt="صورة الرد"
-                                className="h-24 w-full object-cover"
+                            <button
+                              type="button"
+                              onClick={() => updateSelectedNodeData("imageUrl", undefined)}
+                              className="text-[11px] font-semibold text-red-600 hover:text-red-700"
+                            >
+                              ✕ إزالة الصورة
+                            </button>
+                          )}
+                        </div>
+
+                        <input
+                          type="url"
+                          value={(selectedNode.data.imageUrl as string) ?? ""}
+                          onChange={(e) => updateSelectedNodeData("imageUrl", e.target.value.trim() || undefined)}
+                          placeholder="https://example.com/banner.jpg"
+                          className="w-full rounded-xl border border-border bg-white px-3 py-2 text-xs outline-none focus:border-brand"
+                          dir="ltr"
+                        />
+
+                        {(selectedNode.data.imageUrl as string) && (
+                          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={selectedNode.data.imageUrl as string}
+                              alt="معاينة الصورة"
+                              className="h-28 w-full object-cover"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Interactive Action Buttons Manager (ManyChat buttons) */}
+                      <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-3 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                            <span>🔘</span>
+                            <span>أزرار تفاعلية داخل الرسالة (Action Buttons)</span>
+                          </label>
+                          <span className="rounded-full bg-sky-100 text-sky-800 px-2 py-0.5 text-[10px] font-bold">
+                            أزرار تفاعلية
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 leading-relaxed">
+                          أضف أزراراً تظهر مباشرة أسفل الرسالة للعميل (مثل رابط المتجر أو محادثة واتساب فوري).
+                        </p>
+
+                        {/* Existing buttons list */}
+                        {Array.isArray(selectedNode.data.buttons) && (selectedNode.data.buttons as unknown[]).length > 0 && (
+                          <div className="space-y-1.5">
+                            {(selectedNode.data.buttons as Array<{ label: string; url: string; type?: string }>).map(
+                              (btn, bIdx) => (
+                                <div
+                                  key={bIdx}
+                                  className="flex items-center justify-between rounded-lg bg-white p-2 border border-sky-200 text-xs shadow-2xs"
+                                >
+                                  <div className="flex items-center gap-2 overflow-hidden">
+                                    <span>{btn.type === "whatsapp" ? "💬" : btn.type === "phone" ? "📞" : "🔗"}</span>
+                                    <span className="font-bold text-slate-800 truncate">{btn.label}</span>
+                                    <span className="text-[10px] font-mono text-slate-400 truncate max-w-[140px]" dir="ltr">
+                                      {btn.url}
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const current =
+                                        (selectedNode.data.buttons as Array<{ label: string; url: string; type?: string }>) || [];
+                                      updateSelectedNodeData(
+                                        "buttons",
+                                        current.filter((_, i) => i !== bIdx),
+                                      );
+                                    }}
+                                    className="text-red-500 hover:text-red-700 font-bold p-1"
+                                    title="حذف الزر"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ),
+                            )}
+                          </div>
+                        )}
+
+                        {/* Add button input box */}
+                        <div className="rounded-xl border border-sky-200 bg-white p-3 space-y-2">
+                          <span className="font-bold text-slate-700 text-xs block">+ إضافة زر جديد:</span>
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              value={newButtonLabel}
+                              onChange={(e) => setNewButtonLabel(e.target.value)}
+                              placeholder="نص الزر (مثال: 🛒 اطلب الآن من الموقع أو 💬 واتساب)"
+                              className="w-full rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-brand"
+                            />
+                            <div className="flex gap-2">
+                              <select
+                                value={newButtonType}
+                                onChange={(e) => setNewButtonType(e.target.value as "url" | "whatsapp" | "phone")}
+                                className="rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-brand font-medium bg-white"
+                              >
+                                <option value="url">🔗 رابط موقع (URL)</option>
+                                <option value="whatsapp">💬 واتساب (WhatsApp)</option>
+                                <option value="phone">📞 اتصال هاتفي</option>
+                              </select>
+                              <input
+                                type="text"
+                                value={newButtonUrl}
+                                onChange={(e) => setNewButtonUrl(e.target.value)}
+                                placeholder={
+                                  newButtonType === "whatsapp"
+                                    ? "https://wa.me/201000000000"
+                                    : newButtonType === "phone"
+                                    ? "tel:+201000000000"
+                                    : "https://example.com/shop"
+                                }
+                                className="flex-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-brand"
+                                dir="ltr"
                               />
                             </div>
-                          )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!newButtonLabel.trim() || !newButtonUrl.trim()) return;
+                                const current =
+                                  (selectedNode.data.buttons as Array<{ label: string; url: string; type?: string }>) || [];
+                                updateSelectedNodeData("buttons", [
+                                  ...current,
+                                  {
+                                    id: `btn-${Date.now()}`,
+                                    label: newButtonLabel.trim(),
+                                    type: newButtonType,
+                                    url: newButtonUrl.trim(),
+                                  },
+                                ]);
+                                setNewButtonLabel("");
+                                setNewButtonUrl("");
+                              }}
+                              className="w-full rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold py-1.5 text-xs transition"
+                            >
+                              + تأكيد إضافة الزر للرسالة
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1408,6 +1875,7 @@ export default function WorkflowsPage() {
                   <p className="text-xs">اضغط على أي عقدة في اللوحة لعرض وتعديل خصائصها هنا.</p>
                 </div>
               )}
+            </div>
             </div>
           </div>
         </div>
@@ -1722,6 +2190,94 @@ export default function WorkflowsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ManyChat Flow Templates Modal */}
+      {isTemplateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-4xl rounded-3xl border border-border bg-card p-6 shadow-2xl animate-in fade-in duration-200 flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">⚡</span>
+                  <h2 className="text-xl font-bold text-foreground">قوالب أتمتة ManyChat الجاهزة</h2>
+                  <span className="rounded-full bg-brand/10 text-brand px-2.5 py-0.5 text-xs font-bold">جاهز للاستخدام بنقرة واحدة</span>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  اختر من بين أشهر نماذج أتمتة التعليقات والرسائل لفيسبوك وإنستغرام لتجهيز مسارك بالكامل مع الربط التلقائي.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTemplateModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold p-1 text-sm rounded-lg hover:bg-slate-100"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Templates Grid */}
+            <div className="mt-4 flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4 pe-1">
+              {MANYCHAT_FLOW_TEMPLATES.map((tpl) => (
+                <div
+                  key={tpl.id}
+                  className="rounded-2xl border border-border bg-white p-5 shadow-xs hover:border-brand/50 hover:shadow-md transition flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-10 w-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-xl shadow-2xs">
+                          {tpl.icon}
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-400 block">{tpl.category}</span>
+                          <h3 className="font-bold text-sm text-slate-900">{tpl.title}</h3>
+                        </div>
+                      </div>
+                      <span className="rounded-full bg-red-50 text-brand border border-red-100 px-2 py-0.5 text-[10px] font-bold shrink-0">
+                        {tpl.badge}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-600 leading-relaxed mt-2">{tpl.description}</p>
+
+                    <div className="mt-4 flex flex-wrap gap-1.5 text-[10px] font-semibold text-slate-500">
+                      <span className="rounded-md bg-slate-100 px-2 py-0.5">🔹 {tpl.nodes.length} عقدة متصلة</span>
+                      <span className="rounded-md bg-emerald-50 text-emerald-800 px-2 py-0.5">💬 رد عام</span>
+                      <span className="rounded-md bg-sky-50 text-sky-800 px-2 py-0.5">📩 رسالة خاصة</span>
+                      <span className="rounded-md bg-purple-50 text-purple-800 px-2 py-0.5">🎯 شروط ذكية</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={() => handleApplyTemplate(tpl)}
+                      className="rounded-xl bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand/90 transition shadow-xs flex items-center gap-1.5"
+                    >
+                      <span>⚡</span>
+                      <span>استخدام هذا القالب الآن</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
+              <span className="text-xs text-slate-400">
+                يمكنك تخصيص وتعديل أي نصوص أو شروط بحرية بعد استيراد القالب على اللوحة.
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsTemplateModalOpen(false)}
+                className="rounded-xl border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition"
+              >
+                إغلاق
+              </button>
+            </div>
           </div>
         </div>
       )}

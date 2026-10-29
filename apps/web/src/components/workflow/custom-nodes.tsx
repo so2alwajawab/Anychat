@@ -45,15 +45,18 @@ export function TriggerCommentNode({ data, selected }: NodeProps) {
     platform?: string;
     assetName?: string;
     includeReplies?: boolean;
+    matchType?: "all_comments" | "keywords";
+    excludeKeywords?: string[];
     postScope?: { mode?: string; postExternalIds?: string[] };
   };
 
   const isSpecificPosts = d.postScope?.mode === "posts" && (d.postScope.postExternalIds?.length ?? 0) > 0;
   const isReels = d.postScope?.mode === "reels";
+  const isAllComments = d.matchType === "all_comments";
 
   return (
     <div
-      className={`min-w-[260px] rounded-2xl border-2 bg-white p-4 shadow-md transition ${
+      className={`min-w-[270px] max-w-[320px] rounded-2xl border-2 bg-white p-4 shadow-md transition ${
         selected ? "border-brand shadow-lg ring-2 ring-brand/20" : "border-red-400 hover:border-red-500"
       }`}
     >
@@ -90,9 +93,25 @@ export function TriggerCommentNode({ data, selected }: NodeProps) {
               ? `📌 ${d.postScope?.postExternalIds?.length} منشور محدد`
               : isReels
               ? "🎬 مقاطع الريلز فقط"
-              : "🌐 كل المنشورات (الكل)"}
+              : "🌐 كل المنشورات"}
           </span>
         </div>
+
+        <div className="flex items-center justify-between">
+          <span className="text-slate-500">نمط المطابقة:</span>
+          <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+            isAllComments ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"
+          }`}>
+            {isAllComments ? "✨ أي تعليق" : "🎯 كلمات مفتاحية"}
+          </span>
+        </div>
+
+        {(d.excludeKeywords?.length ?? 0) > 0 && (
+          <div className="flex items-center justify-between text-[10px] text-rose-600 pt-1 border-t border-slate-200/60">
+            <span>كلمات مستبعدة:</span>
+            <span className="font-bold">{d.excludeKeywords?.length} كلمة</span>
+          </div>
+        )}
 
         <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
           <span>تصفية الردود:</span>
@@ -181,39 +200,66 @@ export function ConditionTextNode({ data, selected }: NodeProps) {
 }
 
 export function ActionPublicReplyNode({ data, selected }: NodeProps) {
-  const d = (data ?? {}) as { message?: string; imageUrl?: string };
+  const d = (data ?? {}) as {
+    message?: string;
+    messages?: string[];
+    imageUrl?: string;
+    autoLike?: boolean;
+  };
+
+  const messageCount = (d.messages?.length ?? 0) > 0 ? d.messages!.length : d.message ? 1 : 0;
+  const primaryMessage = (d.messages && d.messages.length > 0 ? d.messages[0] : d.message) || "";
 
   return (
     <div
-      className={`min-w-[260px] max-w-[320px] rounded-2xl border-2 bg-white p-4 shadow-md transition ${
+      className={`min-w-[270px] max-w-[320px] rounded-2xl border-2 bg-white p-4 shadow-md transition ${
         selected ? "border-emerald-600 shadow-lg ring-2 ring-emerald-600/20" : "border-emerald-400 hover:border-emerald-500"
       }`}
     >
       <Handle type="target" position={Position.Top} className="!h-3.5 !w-3.5 !bg-emerald-600 !border-2 !border-white" />
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-          </svg>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+          </div>
+          <div>
+            <span className="block text-[11px] font-bold uppercase tracking-wider text-emerald-600">رد عام على التعليق</span>
+            <h4 className="text-sm font-bold text-slate-800">رد عام بالتعليقات</h4>
+          </div>
         </div>
-        <div>
-          <span className="block text-[11px] font-bold uppercase tracking-wider text-emerald-600">إجراء أتمتة (Action)</span>
-          <h4 className="text-sm font-bold text-slate-800">رد عام على التعليق</h4>
-        </div>
+
+        {d.autoLike && (
+          <span className="rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-bold" title="إعجاب تلقائي بالتعليق">
+            👍 لايك
+          </span>
+        )}
+      </div>
+
+      <div className="mt-2.5 flex items-center justify-between text-[11px]">
+        {messageCount > 1 ? (
+          <span className="rounded-md bg-purple-100 text-purple-800 px-2 py-0.5 font-bold flex items-center gap-1">
+            <span>🎲 تنويع عشوائي</span>
+            <span>({messageCount} صيغ)</span>
+          </span>
+        ) : (
+          <span className="text-slate-400">صيغة رد واحدة</span>
+        )}
       </div>
 
       {d.imageUrl && (
-        <div className="mt-2.5 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+        <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={d.imageUrl} alt="مرفق الرد" className="h-24 w-full object-cover" />
+          <img src={d.imageUrl} alt="مرفق الرد" className="h-20 w-full object-cover" />
           <div className="bg-slate-50 px-2 py-0.5 text-[10px] text-slate-500 font-medium text-center">
             🖼️ مرفق صورة بالرد
           </div>
         </div>
       )}
 
-      <div className="mt-2.5 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-800 border border-slate-100 line-clamp-3 leading-relaxed">
-        {formatMessagePreview(d.message)}
+      <div className="mt-2 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-800 border border-slate-100 line-clamp-3 leading-relaxed">
+        {formatMessagePreview(primaryMessage)}
       </div>
 
       <Handle type="source" position={Position.Bottom} className="!h-3.5 !w-3.5 !bg-emerald-600 !border-2 !border-white" />
@@ -222,11 +268,17 @@ export function ActionPublicReplyNode({ data, selected }: NodeProps) {
 }
 
 export function ActionPrivateReplyNode({ data, selected }: NodeProps) {
-  const d = (data ?? {}) as { message?: string; imageUrl?: string };
+  const d = (data ?? {}) as {
+    message?: string;
+    imageUrl?: string;
+    buttons?: Array<{ label: string; url: string; type?: string }>;
+  };
+
+  const hasButtons = Array.isArray(d.buttons) && d.buttons.length > 0;
 
   return (
     <div
-      className={`min-w-[260px] max-w-[320px] rounded-2xl border-2 bg-white p-4 shadow-md transition ${
+      className={`min-w-[270px] max-w-[320px] rounded-2xl border-2 bg-white p-4 shadow-md transition ${
         selected ? "border-sky-600 shadow-lg ring-2 ring-sky-600/20" : "border-sky-400 hover:border-sky-500"
       }`}
     >
@@ -238,7 +290,7 @@ export function ActionPrivateReplyNode({ data, selected }: NodeProps) {
           </svg>
         </div>
         <div>
-          <span className="block text-[11px] font-bold uppercase tracking-wider text-sky-600">رسالة خاصة (Direct/DM)</span>
+          <span className="block text-[11px] font-bold uppercase tracking-wider text-sky-600">رسالة خاصة (Direct / DM)</span>
           <h4 className="text-sm font-bold text-slate-800">إرسال في الخاص</h4>
         </div>
       </div>
@@ -246,7 +298,7 @@ export function ActionPrivateReplyNode({ data, selected }: NodeProps) {
       {d.imageUrl && (
         <div className="mt-2.5 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={d.imageUrl} alt="مرفق الرسالة" className="h-24 w-full object-cover" />
+          <img src={d.imageUrl} alt="مرفق الرسالة" className="h-20 w-full object-cover" />
           <div className="bg-slate-50 px-2 py-0.5 text-[10px] text-slate-500 font-medium text-center">
             🖼️ مرفق صورة بالرسالة
           </div>
@@ -256,6 +308,20 @@ export function ActionPrivateReplyNode({ data, selected }: NodeProps) {
       <div className="mt-2.5 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-800 border border-slate-100 line-clamp-3 leading-relaxed">
         {formatMessagePreview(d.message)}
       </div>
+
+      {hasButtons && (
+        <div className="mt-2 space-y-1">
+          {d.buttons!.map((btn, i) => (
+            <div
+              key={i}
+              className="flex items-center justify-center gap-1 rounded-lg bg-sky-50 border border-sky-200 py-1 px-2 text-[11px] font-bold text-sky-800 truncate"
+            >
+              <span>{btn.type === "whatsapp" ? "💬" : btn.type === "phone" ? "📞" : "🔗"}</span>
+              <span className="truncate">{btn.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <Handle type="source" position={Position.Bottom} className="!h-3.5 !w-3.5 !bg-sky-600 !border-2 !border-white" />
     </div>
