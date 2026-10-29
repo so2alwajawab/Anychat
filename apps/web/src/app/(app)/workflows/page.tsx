@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   ReactFlow,
   Controls,
@@ -23,9 +24,17 @@ import {
 } from "@anychat/shared";
 import { ApiError, delJson, getJson, postJson, putJson } from "@/lib/api";
 import { workflowNodeTypes } from "@/components/workflow/custom-nodes";
-import { MANYCHAT_FLOW_TEMPLATES, type FlowTemplate } from "@/components/workflow/flow-templates";
+import { type FlowTemplate } from "@/components/workflow/flow-templates";
 import { autoLayoutNodes } from "@/components/workflow/auto-layout";
 import { PhonePreview } from "@/components/workflow/phone-preview";
+import { VariablePillList } from "@/components/common/variable-pill";
+import { NegativeKeywordInput } from "@/components/common/negative-keyword-input";
+import { ActionButtonsManager, type ActionButtonItem } from "@/components/common/action-button";
+
+const FlowTemplatesModal = dynamic(
+  () => import("@/components/workflow/flow-templates-modal").then((m) => m.FlowTemplatesModal),
+  { ssr: false }
+);
 
 interface WorkflowListItem {
   id: string;
@@ -73,14 +82,6 @@ interface ContentPostItem {
   createdTime: string;
   commentsCount: number;
 }
-
-const ARABIC_VARIABLES = [
-  { key: "commenter_name", label: "👤 اسم العميل", desc: "اسم العميل صاحب التعليق" },
-  { key: "comment_text", label: "💬 نص التعليق", desc: "التعليق الذي كتبه العميل" },
-  { key: "page_name", label: "🏢 اسم الصفحة", desc: "اسم صفحة المتجر أو النشاط" },
-  { key: "current_date", label: "📅 تاريخ اليوم", desc: "تاريخ اليوم بالتنسيق المحلي" },
-  { key: "post.permalink", label: "🔗 رابط المنشور", desc: "رابط المنشور الأصلي" },
-];
 
 const KEYWORD_PRESETS = [
   {
@@ -144,10 +145,47 @@ export default function WorkflowsPage() {
   // ManyChat Features: Templates Modal, Sidebar Tabs, Negative Keywords & Action Buttons
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<"inspector" | "phone">("inspector");
-  const [newExcludeKeyword, setNewExcludeKeyword] = useState("");
-  const [newButtonLabel, setNewButtonLabel] = useState("");
-  const [newButtonType, setNewButtonType] = useState<"url" | "whatsapp" | "phone">("url");
-  const [newButtonUrl, setNewButtonUrl] = useState("");
+
+  // Post & Customer Metadata (Custom Image & Name)
+  const [customCustomerName, setCustomCustomerName] = useState("أحمد محمود");
+  const [postImageUrl, setPostImageUrl] = useState<string>("");
+  const [isSavingMetadata, setIsSavingMetadata] = useState(false);
+
+  const handlePostImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      setPostImageUrl(dataUrl);
+      try {
+        setIsSavingMetadata(true);
+        await postJson("/api/post/metadata", {
+          postId: activeWorkflow?.assetId || "default",
+          customerName: customCustomerName,
+          imageUrl: dataUrl,
+        });
+      } catch {
+        // Fallback: preview still works
+      } finally {
+        setIsSavingMetadata(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveCustomerName = async (name: string) => {
+    setCustomCustomerName(name);
+    try {
+      await postJson("/api/post/metadata", {
+        postId: activeWorkflow?.assetId || "default",
+        customerName: name,
+        imageUrl: postImageUrl,
+      });
+    } catch {
+      // preview updated
+    }
+  };
 
   // Keyword input state in Condition Inspector
   const [newKeywordInput, setNewKeywordInput] = useState("");
@@ -720,8 +758,9 @@ export default function WorkflowsPage() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
+                aria-label="فتح نافذة قوالب أتمتة ManyChat الجاهزة"
                 onClick={() => setIsTemplateModalOpen(true)}
-                className="rounded-xl border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-bold text-purple-700 hover:bg-purple-100 transition shadow-2xs flex items-center gap-1.5"
+                className="rounded-xl border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-bold text-purple-700 hover:bg-purple-100 transition shadow-2xs flex items-center gap-1.5 focus:ring-2 focus:ring-purple-400 focus:outline-hidden"
               >
                 <span>⚡</span>
                 <span>قوالب جاهزة (ManyChat)</span>
@@ -729,8 +768,9 @@ export default function WorkflowsPage() {
 
               <button
                 type="button"
+                aria-label="ترتيب وتنظيم العقد تلقائياً على اللوحة"
                 onClick={handleAutoLayout}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs flex items-center gap-1"
+                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs flex items-center gap-1 focus:ring-2 focus:ring-slate-400 focus:outline-hidden"
                 title="إعادة تنظيم وترتيب العقد تلقائياً"
               >
                 <span>🪄</span>
@@ -739,8 +779,9 @@ export default function WorkflowsPage() {
 
               <button
                 type="button"
+                aria-label="تبديل عرض محاكي الموبايل المباشر"
                 onClick={() => setSidebarTab(sidebarTab === "phone" ? "inspector" : "phone")}
-                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition shadow-2xs flex items-center gap-1 border ${
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition shadow-2xs flex items-center gap-1 border focus:ring-2 focus:ring-brand focus:outline-hidden ${
                   sidebarTab === "phone"
                     ? "bg-brand text-white border-brand"
                     : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
@@ -752,8 +793,9 @@ export default function WorkflowsPage() {
 
               <button
                 type="button"
+                aria-label="اختبار ومحاكاة مسار الأتمتة"
                 onClick={() => setIsSimOpen(true)}
-                className="rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-brand hover:bg-red-100 transition"
+                className="rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-brand hover:bg-red-100 transition focus:ring-2 focus:ring-red-400 focus:outline-hidden"
               >
                 اختبار ومحاكاة
               </button>
@@ -928,7 +970,7 @@ export default function WorkflowsPage() {
                           "all")
                       }
                       pageName={activeWorkflow?.asset?.displayName || "صفحة المتجر"}
-                      commenterName="أحمد محمود"
+                      commenterName={customCustomerName || "أحمد محمود"}
                       commentText={simText}
                       publicReplyText={
                         (Array.isArray(nodes.find((n) => n.type === "action.public_reply")?.data.messages) &&
@@ -964,8 +1006,46 @@ export default function WorkflowsPage() {
                             )?.postExternalIds?.[0],
                         )?.messagePreview || "أحدث تشكيلة لعام 2026 متوفرة الآن بجميع الفروع والموقع! اطلب الآن عبر التعليقات."
                       }
+                      postImage={postImageUrl}
                       onCommentChange={(t) => setSimText(t)}
                     />
+
+                    {/* Simulation Parameters Customizer */}
+                    <div className="rounded-2xl border border-border bg-slate-50/70 p-3 space-y-3 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-700">تخصيص بيانات المحاكاة والمنشور:</span>
+                        {isSavingMetadata && (
+                          <span className="text-[10px] text-brand animate-pulse">جاري الحفظ…</span>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1" htmlFor="sim-customer-name">
+                          👤 اسم العميل (لتجربة الرد بالاسم):
+                        </label>
+                        <input
+                          id="sim-customer-name"
+                          type="text"
+                          value={customCustomerName}
+                          onChange={(e) => handleSaveCustomerName(e.target.value)}
+                          placeholder="مثال: أحمد محمود"
+                          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-brand"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1" htmlFor="sim-post-image">
+                          🖼️ رفع صورة للمنشور بالمحاكي:
+                        </label>
+                        <input
+                          id="sim-post-image"
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePostImageUpload}
+                          className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand/10 file:text-brand hover:file:bg-brand/20 cursor-pointer"
+                        />
+                      </div>
+                    </div>
                   </div>
                 ) : selectedNode ? (
                   <div className="space-y-4">
@@ -1193,80 +1273,47 @@ export default function WorkflowsPage() {
                         </div>
                       </div>
 
-                      {/* Negative Keywords (Exclude Words) */}
-                      <div className="rounded-xl border border-rose-100 bg-rose-50/40 p-3 space-y-2">
+                      {/* Negative Keywords Component */}
+                      <NegativeKeywordInput
+                        keywords={(selectedNode.data.excludeKeywords as string[]) || []}
+                        onChange={(newKeywords) => updateSelectedNodeData("excludeKeywords", newKeywords)}
+                      />
+
+                      {/* Post Customization & Metadata: Customer Name & Image Upload */}
+                      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
                         <div className="flex items-center justify-between">
-                          <label className="font-bold text-slate-700 text-xs flex items-center gap-1">
-                            <span>🚫</span>
-                            <span>استبعاد تعليقات بكلمات معينة (Negative Keywords)</span>
+                          <label className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
+                            <span>🖼️</span>
+                            <span>تخصيص بيانات المنشور المستهدف:</span>
                           </label>
-                          <span className="text-[10px] font-bold text-rose-700">
-                            {((selectedNode.data.excludeKeywords as string[])?.length ?? 0)} كلمة
-                          </span>
+                          {isSavingMetadata && (
+                            <span className="text-[10px] text-brand animate-pulse">جاري الحفظ…</span>
+                          )}
                         </div>
-                        <p className="text-[10px] text-slate-500 leading-relaxed">
-                          لن يتم تشغيل الأتمتة إذا تضمن التعليق أياً من هذه الكلمات (مثل الشتائم أو المنافسين).
+                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                          يمكنك رفع صورة للمنشور وتحديد اسم العميل الافتراضي لدمجهما مع رسائل الأتمتة والمحاكاة.
                         </p>
-                        <div className="flex gap-1.5">
-                          <input
-                            type="text"
-                            value={newExcludeKeyword}
-                            onChange={(e) => setNewExcludeKeyword(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && newExcludeKeyword.trim()) {
-                                e.preventDefault();
-                                const current = (selectedNode.data.excludeKeywords as string[]) || [];
-                                const val = newExcludeKeyword.trim();
-                                if (!current.includes(val)) {
-                                  updateSelectedNodeData("excludeKeywords", [...current, val]);
-                                }
-                                setNewExcludeKeyword("");
-                              }
-                            }}
-                            placeholder="اكتب كلمة واضغط Enter..."
-                            className="flex-1 rounded-xl border border-border bg-white px-3 py-1.5 text-xs outline-none focus:border-brand"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (!newExcludeKeyword.trim()) return;
-                              const current = (selectedNode.data.excludeKeywords as string[]) || [];
-                              const val = newExcludeKeyword.trim();
-                              if (!current.includes(val)) {
-                                updateSelectedNodeData("excludeKeywords", [...current, val]);
-                              }
-                              setNewExcludeKeyword("");
-                            }}
-                            className="rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-700 transition"
-                          >
-                            + استبعاد
-                          </button>
-                        </div>
-                        {((selectedNode.data.excludeKeywords as string[])?.length ?? 0) > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-1">
-                            {(selectedNode.data.excludeKeywords as string[]).map((kw, i) => (
-                              <span
-                                key={i}
-                                className="inline-flex items-center gap-1 rounded-lg bg-white border border-rose-200 px-2 py-0.5 text-[11px] font-semibold text-rose-800"
-                              >
-                                <span>{kw}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const current = (selectedNode.data.excludeKeywords as string[]) || [];
-                                    updateSelectedNodeData(
-                                      "excludeKeywords",
-                                      current.filter((_, idx) => idx !== i),
-                                    );
-                                  }}
-                                  className="text-rose-400 hover:text-rose-700 font-bold"
-                                >
-                                  ✕
-                                </button>
-                              </span>
-                            ))}
+                        <div className="space-y-2 pt-1">
+                          <div>
+                            <span className="block text-[11px] font-bold text-slate-600 mb-1">اسم العميل:</span>
+                            <input
+                              type="text"
+                              value={customCustomerName}
+                              onChange={(e) => handleSaveCustomerName(e.target.value)}
+                              placeholder="اسم العميل (مثال: أحمد محمود)"
+                              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-brand"
+                            />
                           </div>
-                        )}
+                          <div>
+                            <span className="block text-[11px] font-bold text-slate-600 mb-1">صورة المنشور أو الإعلان:</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handlePostImageUpload}
+                              className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand/10 file:text-brand hover:file:bg-brand/20 cursor-pointer"
+                            />
+                          </div>
+                        </div>
                       </div>
 
                       {/* Sub-replies toggle */}
@@ -1533,22 +1580,18 @@ export default function WorkflowsPage() {
                                     placeholder="اكتب نص الرد..."
                                     className="w-full rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-brand resize-none leading-relaxed"
                                   />
-                                  <div className="flex flex-wrap gap-1 pt-1">
-                                    {ARABIC_VARIABLES.map((v) => (
-                                      <button
-                                        key={v.key}
-                                        type="button"
-                                        onClick={() => {
-                                          const updated = [...currentMessages];
-                                          updated[idx] = `${updated[idx]} {{${v.key}}} `;
-                                          updateSelectedNodeData("messages", updated);
-                                          if (idx === 0) updateSelectedNodeData("message", updated[idx]);
-                                        }}
-                                        className="rounded bg-red-50 hover:bg-red-100 text-brand px-1.5 py-0.5 text-[10px] font-bold border border-red-100"
-                                      >
-                                        + {v.label}
-                                      </button>
-                                    ))}
+                                  <div className="pt-1">
+                                    <VariablePillList
+                                      title=""
+                                      subtitle=""
+                                      variant="compact"
+                                      onSelect={(key) => {
+                                        const updated = [...currentMessages];
+                                        updated[idx] = `${updated[idx]} {{${key}}} `;
+                                        updateSelectedNodeData("messages", updated);
+                                        if (idx === 0) updateSelectedNodeData("message", updated[idx]);
+                                      }}
+                                    />
                                   </div>
                                 </div>
                               ))}
@@ -1635,28 +1678,12 @@ export default function WorkflowsPage() {
                       </div>
 
                       {/* Arabic Variable Pills */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="font-bold text-slate-700 text-xs">إدراج متغيرات بالرسالة:</span>
-                          <span className="text-[10px] text-slate-400">انقر للإدراج</span>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {ARABIC_VARIABLES.map((v) => (
-                            <button
-                              key={v.key}
-                              type="button"
-                              title={v.desc}
-                              onClick={() => {
-                                const current = (selectedNode.data.message as string) ?? "";
-                                updateSelectedNodeData("message", `${current} {{${v.key}}} `);
-                              }}
-                              className="flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-bold text-red-700 hover:bg-red-100 transition"
-                            >
-                              <span>{v.label}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                      <VariablePillList
+                        onSelect={(key) => {
+                          const current = (selectedNode.data.message as string) ?? "";
+                          updateSelectedNodeData("message", `${current} {{${key}}} `);
+                        }}
+                      />
 
                       {/* Image Attachment */}
                       <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
@@ -1698,118 +1725,14 @@ export default function WorkflowsPage() {
                       </div>
 
                       {/* Interactive Action Buttons Manager (ManyChat buttons) */}
-                      <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-3 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <label className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-                            <span>🔘</span>
-                            <span>أزرار تفاعلية داخل الرسالة (Action Buttons)</span>
-                          </label>
-                          <span className="rounded-full bg-sky-100 text-sky-800 px-2 py-0.5 text-[10px] font-bold">
-                            أزرار تفاعلية
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-600 leading-relaxed">
-                          أضف أزراراً تظهر مباشرة أسفل الرسالة للعميل (مثل رابط المتجر أو محادثة واتساب فوري).
-                        </p>
-
-                        {/* Existing buttons list */}
-                        {Array.isArray(selectedNode.data.buttons) && (selectedNode.data.buttons as unknown[]).length > 0 && (
-                          <div className="space-y-1.5">
-                            {(selectedNode.data.buttons as Array<{ label: string; url: string; type?: string }>).map(
-                              (btn, bIdx) => (
-                                <div
-                                  key={bIdx}
-                                  className="flex items-center justify-between rounded-lg bg-white p-2 border border-sky-200 text-xs shadow-2xs"
-                                >
-                                  <div className="flex items-center gap-2 overflow-hidden">
-                                    <span>{btn.type === "whatsapp" ? "💬" : btn.type === "phone" ? "📞" : "🔗"}</span>
-                                    <span className="font-bold text-slate-800 truncate">{btn.label}</span>
-                                    <span className="text-[10px] font-mono text-slate-400 truncate max-w-[140px]" dir="ltr">
-                                      {btn.url}
-                                    </span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const current =
-                                        (selectedNode.data.buttons as Array<{ label: string; url: string; type?: string }>) || [];
-                                      updateSelectedNodeData(
-                                        "buttons",
-                                        current.filter((_, i) => i !== bIdx),
-                                      );
-                                    }}
-                                    className="text-red-500 hover:text-red-700 font-bold p-1"
-                                    title="حذف الزر"
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                              ),
-                            )}
-                          </div>
-                        )}
-
-                        {/* Add button input box */}
-                        <div className="rounded-xl border border-sky-200 bg-white p-3 space-y-2">
-                          <span className="font-bold text-slate-700 text-xs block">+ إضافة زر جديد:</span>
-                          <div className="space-y-2">
-                            <input
-                              type="text"
-                              value={newButtonLabel}
-                              onChange={(e) => setNewButtonLabel(e.target.value)}
-                              placeholder="نص الزر (مثال: 🛒 اطلب الآن من الموقع أو 💬 واتساب)"
-                              className="w-full rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-brand"
-                            />
-                            <div className="flex gap-2">
-                              <select
-                                value={newButtonType}
-                                onChange={(e) => setNewButtonType(e.target.value as "url" | "whatsapp" | "phone")}
-                                className="rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-brand font-medium bg-white"
-                              >
-                                <option value="url">🔗 رابط موقع (URL)</option>
-                                <option value="whatsapp">💬 واتساب (WhatsApp)</option>
-                                <option value="phone">📞 اتصال هاتفي</option>
-                              </select>
-                              <input
-                                type="text"
-                                value={newButtonUrl}
-                                onChange={(e) => setNewButtonUrl(e.target.value)}
-                                placeholder={
-                                  newButtonType === "whatsapp"
-                                    ? "https://wa.me/201000000000"
-                                    : newButtonType === "phone"
-                                    ? "tel:+201000000000"
-                                    : "https://example.com/shop"
-                                }
-                                className="flex-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-brand"
-                                dir="ltr"
-                              />
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (!newButtonLabel.trim() || !newButtonUrl.trim()) return;
-                                const current =
-                                  (selectedNode.data.buttons as Array<{ label: string; url: string; type?: string }>) || [];
-                                updateSelectedNodeData("buttons", [
-                                  ...current,
-                                  {
-                                    id: `btn-${Date.now()}`,
-                                    label: newButtonLabel.trim(),
-                                    type: newButtonType,
-                                    url: newButtonUrl.trim(),
-                                  },
-                                ]);
-                                setNewButtonLabel("");
-                                setNewButtonUrl("");
-                              }}
-                              className="w-full rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold py-1.5 text-xs transition"
-                            >
-                              + تأكيد إضافة الزر للرسالة
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                      <ActionButtonsManager
+                        buttons={
+                          (Array.isArray(selectedNode.data.buttons)
+                            ? (selectedNode.data.buttons as ActionButtonItem[])
+                            : []) || []
+                        }
+                        onChange={(newButtons) => updateSelectedNodeData("buttons", newButtons)}
+                      />
                     </div>
                   )}
 
@@ -2195,92 +2118,11 @@ export default function WorkflowsPage() {
       )}
 
       {/* ManyChat Flow Templates Modal */}
-      {isTemplateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-4xl rounded-3xl border border-border bg-card p-6 shadow-2xl animate-in fade-in duration-200 flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between border-b border-border pb-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">⚡</span>
-                  <h2 className="text-xl font-bold text-foreground">قوالب أتمتة ManyChat الجاهزة</h2>
-                  <span className="rounded-full bg-brand/10 text-brand px-2.5 py-0.5 text-xs font-bold">جاهز للاستخدام بنقرة واحدة</span>
-                </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  اختر من بين أشهر نماذج أتمتة التعليقات والرسائل لفيسبوك وإنستغرام لتجهيز مسارك بالكامل مع الربط التلقائي.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsTemplateModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold p-1 text-sm rounded-lg hover:bg-slate-100"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Templates Grid */}
-            <div className="mt-4 flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4 pe-1">
-              {MANYCHAT_FLOW_TEMPLATES.map((tpl) => (
-                <div
-                  key={tpl.id}
-                  className="rounded-2xl border border-border bg-white p-5 shadow-xs hover:border-brand/50 hover:shadow-md transition flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-10 w-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-xl shadow-2xs">
-                          {tpl.icon}
-                        </div>
-                        <div>
-                          <span className="text-[10px] font-bold text-slate-400 block">{tpl.category}</span>
-                          <h3 className="font-bold text-sm text-slate-900">{tpl.title}</h3>
-                        </div>
-                      </div>
-                      <span className="rounded-full bg-red-50 text-brand border border-red-100 px-2 py-0.5 text-[10px] font-bold shrink-0">
-                        {tpl.badge}
-                      </span>
-                    </div>
-
-                    <p className="text-xs text-slate-600 leading-relaxed mt-2">{tpl.description}</p>
-
-                    <div className="mt-4 flex flex-wrap gap-1.5 text-[10px] font-semibold text-slate-500">
-                      <span className="rounded-md bg-slate-100 px-2 py-0.5">🔹 {tpl.nodes.length} عقدة متصلة</span>
-                      <span className="rounded-md bg-emerald-50 text-emerald-800 px-2 py-0.5">💬 رد عام</span>
-                      <span className="rounded-md bg-sky-50 text-sky-800 px-2 py-0.5">📩 رسالة خاصة</span>
-                      <span className="rounded-md bg-purple-50 text-purple-800 px-2 py-0.5">🎯 شروط ذكية</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-end">
-                    <button
-                      type="button"
-                      onClick={() => handleApplyTemplate(tpl)}
-                      className="rounded-xl bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand/90 transition shadow-xs flex items-center gap-1.5"
-                    >
-                      <span>⚡</span>
-                      <span>استخدام هذا القالب الآن</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
-              <span className="text-xs text-slate-400">
-                يمكنك تخصيص وتعديل أي نصوص أو شروط بحرية بعد استيراد القالب على اللوحة.
-              </span>
-              <button
-                type="button"
-                onClick={() => setIsTemplateModalOpen(false)}
-                className="rounded-xl border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition"
-              >
-                إغلاق
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <FlowTemplatesModal
+        isOpen={isTemplateModalOpen}
+        onClose={() => setIsTemplateModalOpen(false)}
+        onApplyTemplate={handleApplyTemplate}
+      />
 
       {/* Delete Confirmation Modal */}
       {deletingId && (

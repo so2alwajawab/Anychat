@@ -7,7 +7,10 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "test": "node scripts/verify-arabic.mjs",
+    "test": "vitest run && node scripts/verify-arabic.mjs",
+    "test:unit": "vitest run",
+    "test:arabic": "node scripts/verify-arabic.mjs",
+    "test:watch": "vitest",
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
@@ -20,14 +23,18 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
     "@tailwindcss/turbopack": "^4",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
+    "jsdom": "^30.1.3",
     "postcss": "^8.5.31",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.12"
   },
   "packageManager": "pnpm@11.25.0"
 }

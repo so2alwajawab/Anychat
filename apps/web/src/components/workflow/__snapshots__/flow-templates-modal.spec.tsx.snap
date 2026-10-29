@@ -1,0 +1,492 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`FlowTemplatesModal > renders modal and template list with accessible dialog attributes 1`] = `
+<div>
+  <div
+    aria-describedby="templates-modal-desc"
+    aria-labelledby="templates-modal-title"
+    aria-modal="true"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+    role="dialog"
+  >
+    <div
+      class="w-full max-w-4xl rounded-3xl border border-border bg-card p-6 shadow-2xl animate-in fade-in duration-200 flex flex-col max-h-[90vh]"
+    >
+      <div
+        class="flex items-center justify-between border-b border-border pb-4"
+      >
+        <div>
+          <div
+            class="flex items-center gap-2"
+          >
+            <span
+              class="text-xl"
+            >
+              ⚡
+            </span>
+            <h2
+              class="text-xl font-bold text-foreground"
+              id="templates-modal-title"
+            >
+              قوالب أتمتة ManyChat الجاهزة
+            </h2>
+            <span
+              class="rounded-full bg-brand/10 text-brand px-2.5 py-0.5 text-xs font-bold"
+            >
+              جاهز للاستخدام بنقرة واحدة
+            </span>
+          </div>
+          <p
+            class="text-xs text-slate-500 mt-1"
+            id="templates-modal-desc"
+          >
+            اختر من بين أشهر نماذج أتمتة التعليقات والرسائل لفيسبوك وإنستغرام لتجهيز مسارك بالكامل مع الربط التلقائي.
+          </p>
+        </div>
+        <button
+          aria-label="إغلاق نافذة القوالب"
+          class="text-slate-400 hover:text-slate-600 font-bold p-1 text-sm rounded-lg hover:bg-slate-100 transition focus:outline-hidden focus:ring-2 focus:ring-brand/40"
+          type="button"
+        >
+          ✕
+        </button>
+      </div>
+      <div
+        class="mt-4 flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4 pe-1"
+      >
+        <div
+          class="rounded-2xl border border-border bg-white p-5 shadow-xs hover:border-brand/50 hover:shadow-md transition flex flex-col justify-between"
+        >
+          <div>
+            <div
+              class="flex items-start justify-between gap-2 mb-2"
+            >
+              <div
+                class="flex items-center gap-2.5"
+              >
+                <div
+                  class="h-10 w-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-xl shadow-2xs"
+                >
+                  💰
+                </div>
+                <div>
+                  <span
+                    class="text-[10px] font-bold text-slate-400 block"
+                  >
+                    مبيعات وتجارة إلكترونية
+                  </span>
+                  <h3
+                    class="font-bold text-sm text-slate-900"
+                  >
+                    استفسارات الأسعار والطلب المباشر
+                  </h3>
+                </div>
+              </div>
+              <span
+                class="rounded-full bg-red-50 text-brand border border-red-100 px-2 py-0.5 text-[10px] font-bold shrink-0"
+              >
+                الأكثر استخداماً ⭐
+              </span>
+            </div>
+            <p
+              class="text-xs text-slate-600 leading-relaxed mt-2"
+            >
+              فحص كلمات الأسعار (بكام، سعر، price) والرد على التعليق بصيغ متنوعة وإرسال تفاصيل السعر في الخاص مع زر الطلب وزر واتساب.
+            </p>
+            <div
+              class="mt-4 flex flex-wrap gap-1.5 text-[10px] font-semibold text-slate-500"
+            >
+              <span
+                class="rounded-md bg-slate-100 px-2 py-0.5"
+              >
+                🔹 
+                6
+                 عقدة متصلة
+              </span>
+              <span
+                class="rounded-md bg-emerald-50 text-emerald-800 px-2 py-0.5"
+              >
+                💬 رد عام
+              </span>
+              <span
+                class="rounded-md bg-sky-50 text-sky-800 px-2 py-0.5"
+              >
+                📩 رسالة خاصة
+              </span>
+              <span
+                class="rounded-md bg-purple-50 text-purple-800 px-2 py-0.5"
+              >
+                🎯 شروط ذكية
+              </span>
+            </div>
+          </div>
+          <div
+            class="mt-5 pt-3 border-t border-slate-100 flex items-center justify-end"
+          >
+            <button
+              aria-label="استخدام قالب استفسارات الأسعار والطلب المباشر الآن"
+              class="rounded-xl bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand/90 transition shadow-xs flex items-center gap-1.5 focus:outline-hidden focus:ring-2 focus:ring-brand/40"
+              type="button"
+            >
+              <span>
+                ⚡
+              </span>
+              <span>
+                استخدام هذا القالب الآن
+              </span>
+            </button>
+          </div>
+        </div>
+        <div
+          class="rounded-2xl border border-border bg-white p-5 shadow-xs hover:border-brand/50 hover:shadow-md transition flex flex-col justify-between"
+        >
+          <div>
+            <div
+              class="flex items-start justify-between gap-2 mb-2"
+            >
+              <div
+                class="flex items-center gap-2.5"
+              >
+                <div
+                  class="h-10 w-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-xl shadow-2xs"
+                >
+                  🎁
+                </div>
+                <div>
+                  <span
+                    class="text-[10px] font-bold text-slate-400 block"
+                  >
+                    تسويق وترويج
+                  </span>
+                  <h3
+                    class="font-bold text-sm text-slate-900"
+                  >
+                    حملة كود الخصم والكوبونات
+                  </h3>
+                </div>
+              </div>
+              <span
+                class="rounded-full bg-red-50 text-brand border border-red-100 px-2 py-0.5 text-[10px] font-bold shrink-0"
+              >
+                زيادة المبيعات 🔥
+              </span>
+            </div>
+            <p
+              class="text-xs text-slate-600 leading-relaxed mt-2"
+            >
+              اطلب من المتابعين التعليق بكلمة (خصم أو كوبون) ليحصلوا فوراً على كود التخفيض في الخاص مع رابط التفعيل.
+            </p>
+            <div
+              class="mt-4 flex flex-wrap gap-1.5 text-[10px] font-semibold text-slate-500"
+            >
+              <span
+                class="rounded-md bg-slate-100 px-2 py-0.5"
+              >
+                🔹 
+                6
+                 عقدة متصلة
+              </span>
+              <span
+                class="rounded-md bg-emerald-50 text-emerald-800 px-2 py-0.5"
+              >
+                💬 رد عام
+              </span>
+              <span
+                class="rounded-md bg-sky-50 text-sky-800 px-2 py-0.5"
+              >
+                📩 رسالة خاصة
+              </span>
+              <span
+                class="rounded-md bg-purple-50 text-purple-800 px-2 py-0.5"
+              >
+                🎯 شروط ذكية
+              </span>
+            </div>
+          </div>
+          <div
+            class="mt-5 pt-3 border-t border-slate-100 flex items-center justify-end"
+          >
+            <button
+              aria-label="استخدام قالب حملة كود الخصم والكوبونات الآن"
+              class="rounded-xl bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand/90 transition shadow-xs flex items-center gap-1.5 focus:outline-hidden focus:ring-2 focus:ring-brand/40"
+              type="button"
+            >
+              <span>
+                ⚡
+              </span>
+              <span>
+                استخدام هذا القالب الآن
+              </span>
+            </button>
+          </div>
+        </div>
+        <div
+          class="rounded-2xl border border-border bg-white p-5 shadow-xs hover:border-brand/50 hover:shadow-md transition flex flex-col justify-between"
+        >
+          <div>
+            <div
+              class="flex items-start justify-between gap-2 mb-2"
+            >
+              <div
+                class="flex items-center gap-2.5"
+              >
+                <div
+                  class="h-10 w-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-xl shadow-2xs"
+                >
+                  🚀
+                </div>
+                <div>
+                  <span
+                    class="text-[10px] font-bold text-slate-400 block"
+                  >
+                    تفاعل عام وخدمة عملاء
+                  </span>
+                  <h3
+                    class="font-bold text-sm text-slate-900"
+                  >
+                    الرد الشامل الذكي على جميع التعليقات
+                  </h3>
+                </div>
+              </div>
+              <span
+                class="rounded-full bg-red-50 text-brand border border-red-100 px-2 py-0.5 text-[10px] font-bold shrink-0"
+              >
+                أتمتة شاملة ⚡
+              </span>
+            </div>
+            <p
+              class="text-xs text-slate-600 leading-relaxed mt-2"
+            >
+              الرد على أي تعليق يرد على أي منشور دون شروط كلمات، مع تنويع عشوائي بين الردود لحماية الحساب من قيود ميتا.
+            </p>
+            <div
+              class="mt-4 flex flex-wrap gap-1.5 text-[10px] font-semibold text-slate-500"
+            >
+              <span
+                class="rounded-md bg-slate-100 px-2 py-0.5"
+              >
+                🔹 
+                4
+                 عقدة متصلة
+              </span>
+              <span
+                class="rounded-md bg-emerald-50 text-emerald-800 px-2 py-0.5"
+              >
+                💬 رد عام
+              </span>
+              <span
+                class="rounded-md bg-sky-50 text-sky-800 px-2 py-0.5"
+              >
+                📩 رسالة خاصة
+              </span>
+              <span
+                class="rounded-md bg-purple-50 text-purple-800 px-2 py-0.5"
+              >
+                🎯 شروط ذكية
+              </span>
+            </div>
+          </div>
+          <div
+            class="mt-5 pt-3 border-t border-slate-100 flex items-center justify-end"
+          >
+            <button
+              aria-label="استخدام قالب الرد الشامل الذكي على جميع التعليقات الآن"
+              class="rounded-xl bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand/90 transition shadow-xs flex items-center gap-1.5 focus:outline-hidden focus:ring-2 focus:ring-brand/40"
+              type="button"
+            >
+              <span>
+                ⚡
+              </span>
+              <span>
+                استخدام هذا القالب الآن
+              </span>
+            </button>
+          </div>
+        </div>
+        <div
+          class="rounded-2xl border border-border bg-white p-5 shadow-xs hover:border-brand/50 hover:shadow-md transition flex flex-col justify-between"
+        >
+          <div>
+            <div
+              class="flex items-start justify-between gap-2 mb-2"
+            >
+              <div
+                class="flex items-center gap-2.5"
+              >
+                <div
+                  class="h-10 w-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-xl shadow-2xs"
+                >
+                  💬
+                </div>
+                <div>
+                  <span
+                    class="text-[10px] font-bold text-slate-400 block"
+                  >
+                    خدمة عملاء ومبيعات
+                  </span>
+                  <h3
+                    class="font-bold text-sm text-slate-900"
+                  >
+                    تحويل المتابعين إلى محادثة واتساب
+                  </h3>
+                </div>
+              </div>
+              <span
+                class="rounded-full bg-red-50 text-brand border border-red-100 px-2 py-0.5 text-[10px] font-bold shrink-0"
+              >
+                أعلى تحويل 📲
+              </span>
+            </div>
+            <p
+              class="text-xs text-slate-600 leading-relaxed mt-2"
+            >
+              توجيه العملاء المهتمين من تعليقات فيسبوك وإنستغرام مباشرة إلى محادثة واتساب مع فريق المبيعات بنقرة واحدة.
+            </p>
+            <div
+              class="mt-4 flex flex-wrap gap-1.5 text-[10px] font-semibold text-slate-500"
+            >
+              <span
+                class="rounded-md bg-slate-100 px-2 py-0.5"
+              >
+                🔹 
+                6
+                 عقدة متصلة
+              </span>
+              <span
+                class="rounded-md bg-emerald-50 text-emerald-800 px-2 py-0.5"
+              >
+                💬 رد عام
+              </span>
+              <span
+                class="rounded-md bg-sky-50 text-sky-800 px-2 py-0.5"
+              >
+                📩 رسالة خاصة
+              </span>
+              <span
+                class="rounded-md bg-purple-50 text-purple-800 px-2 py-0.5"
+              >
+                🎯 شروط ذكية
+              </span>
+            </div>
+          </div>
+          <div
+            class="mt-5 pt-3 border-t border-slate-100 flex items-center justify-end"
+          >
+            <button
+              aria-label="استخدام قالب تحويل المتابعين إلى محادثة واتساب الآن"
+              class="rounded-xl bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand/90 transition shadow-xs flex items-center gap-1.5 focus:outline-hidden focus:ring-2 focus:ring-brand/40"
+              type="button"
+            >
+              <span>
+                ⚡
+              </span>
+              <span>
+                استخدام هذا القالب الآن
+              </span>
+            </button>
+          </div>
+        </div>
+        <div
+          class="rounded-2xl border border-border bg-white p-5 shadow-xs hover:border-brand/50 hover:shadow-md transition flex flex-col justify-between"
+        >
+          <div>
+            <div
+              class="flex items-start justify-between gap-2 mb-2"
+            >
+              <div
+                class="flex items-center gap-2.5"
+              >
+                <div
+                  class="h-10 w-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-xl shadow-2xs"
+                >
+                  📦
+                </div>
+                <div>
+                  <span
+                    class="text-[10px] font-bold text-slate-400 block"
+                  >
+                    كتالوج ومنتجات
+                  </span>
+                  <h3
+                    class="font-bold text-sm text-slate-900"
+                  >
+                    إرسال كتالوج المنتجات وقائمة الأسعار
+                  </h3>
+                </div>
+              </div>
+              <span
+                class="rounded-full bg-red-50 text-brand border border-red-100 px-2 py-0.5 text-[10px] font-bold shrink-0"
+              >
+                مريح للمشتري 📖
+              </span>
+            </div>
+            <p
+              class="text-xs text-slate-600 leading-relaxed mt-2"
+            >
+              إرسال رابط تصفح كتالوج المنتجات أو ملف الأسعار فور كتابة المتابع كلمة (كتالوج، قائمة، تفاصيل).
+            </p>
+            <div
+              class="mt-4 flex flex-wrap gap-1.5 text-[10px] font-semibold text-slate-500"
+            >
+              <span
+                class="rounded-md bg-slate-100 px-2 py-0.5"
+              >
+                🔹 
+                6
+                 عقدة متصلة
+              </span>
+              <span
+                class="rounded-md bg-emerald-50 text-emerald-800 px-2 py-0.5"
+              >
+                💬 رد عام
+              </span>
+              <span
+                class="rounded-md bg-sky-50 text-sky-800 px-2 py-0.5"
+              >
+                📩 رسالة خاصة
+              </span>
+              <span
+                class="rounded-md bg-purple-50 text-purple-800 px-2 py-0.5"
+              >
+                🎯 شروط ذكية
+              </span>
+            </div>
+          </div>
+          <div
+            class="mt-5 pt-3 border-t border-slate-100 flex items-center justify-end"
+          >
+            <button
+              aria-label="استخدام قالب إرسال كتالوج المنتجات وقائمة الأسعار الآن"
+              class="rounded-xl bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand/90 transition shadow-xs flex items-center gap-1.5 focus:outline-hidden focus:ring-2 focus:ring-brand/40"
+              type="button"
+            >
+              <span>
+                ⚡
+              </span>
+              <span>
+                استخدام هذا القالب الآن
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div
+        class="mt-4 flex items-center justify-between border-t border-border pt-3"
+      >
+        <span
+          class="text-xs text-slate-400"
+        >
+          يمكنك تخصيص وتعديل أي نصوص أو شروط بحرية بعد استيراد القالب على اللوحة.
+        </span>
+        <button
+          aria-label="إغلاق نافذة القوالب"
+          class="rounded-xl border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition"
+          type="button"
+        >
+          إغلاق
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+`;

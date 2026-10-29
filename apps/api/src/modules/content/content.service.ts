@@ -180,4 +180,32 @@ export class ContentService {
     const statsList = await this.reconciliation.syncAllSelected();
     return { syncedAssets: statsList.length, stats: statsList };
   }
+
+  private readonly metadataStore = new Map<
+    string,
+    { postId: string; customerName?: string; imageUrl?: string; updatedAt: string }
+  >();
+
+  async savePostMetadata(body: { postId?: string; customerName?: string; imageUrl?: string }) {
+    const postId = body.postId || 'default';
+    const entry = {
+      postId,
+      customerName: body.customerName,
+      imageUrl: body.imageUrl,
+      updatedAt: new Date().toISOString(),
+    };
+    this.metadataStore.set(postId, entry);
+    return { success: true, metadata: entry };
+  }
+
+  async getPostMetadata(postId?: string) {
+    const key = postId || 'default';
+    const entry = this.metadataStore.get(key) || {
+      postId: key,
+      customerName: '',
+      imageUrl: '',
+      updatedAt: new Date().toISOString(),
+    };
+    return { success: true, metadata: entry };
+  }
 }

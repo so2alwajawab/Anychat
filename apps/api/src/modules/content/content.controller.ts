@@ -26,4 +26,17 @@ export class ContentController {
   async sync(@Body() body: SyncContentDto) {
     return this.content.sync(body.assetId);
   }
+
+  @Post('post/metadata')
+  @HttpCode(200)
+  async savePostMetadata(
+    @Body() body: { postId?: string; customerName?: string; imageUrl?: string },
+  ) {
+    return this.content.savePostMetadata(body);
+  }
+
+  @Get('post/metadata')
+  async getPostMetadata(@Query('postId') postId?: string) {
+    return this.content.getPostMetadata(postId);
+  }
 }

@@ -76,6 +76,9 @@ jobs:
       - name: Unit tests
         run: pnpm -r test
 
+      - name: Arabic RTL compliance check
+        run: pnpm --filter web test:arabic
+
       - name: E2E tests (auth + authorization matrix)
         run: pnpm --filter api test:e2e
 
