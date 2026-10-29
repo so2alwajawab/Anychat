@@ -179,46 +179,108 @@ function ConnectionsInner() {
         </div>
       )}
 
-      {/* Main Facebook Connect Action Card */}
-      <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="space-y-1">
-            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-              <span className="text-[#1877F2]">📘</span>
-              <span>ربط الحسابات والصفحات عبر فيسبوك</span>
-            </h2>
-            <p className="text-xs text-slate-500 max-w-xl leading-relaxed">
-              عند الضغط على الزر، سيتم توجيهك إلى فيسبوك لتسجيل الدخول واختيار الصفحات وحسابات إنستغرام التي ترغب في ربطها بالمنصة مع منح صلاحيات قراءة التعليقات والرد عليها.
+      {/* Connection Action Cards - Facebook & Instagram */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* Facebook Connect Card */}
+        <section className="rounded-2xl border border-blue-100 bg-gradient-to-br from-white to-blue-50/40 p-6 shadow-sm flex flex-col justify-between relative overflow-hidden">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-[#1877F2]/10 flex items-center justify-center text-[#1877F2]">
+                  <svg className="h-6 w-6 fill-current" viewBox="0 0 24 24">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-foreground">ربط صفحات فيسبوك</h2>
+                  <span className="text-xs text-blue-600 font-semibold">صفحات فيسبوك الرسمية</span>
+                </div>
+              </div>
+              <span className="rounded-full bg-blue-100/70 text-blue-700 text-xs px-2.5 py-0.5 font-medium">
+                {assets.filter((a) => a.platform === "facebook").length} صفحة مربوطة
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 leading-relaxed pt-1">
+              ربط صفحات فيسبوك لإدارة التعليقات والمنشورات والردود التلقائية ورسائل ماسنجر للعملاء فورياً.
             </p>
           </div>
 
-          <div>
+          <div className="pt-5 mt-auto">
             <button
               type="button"
               disabled={!isConfigured}
               onClick={() => go("/api/v1/meta/oauth/start")}
-              className="w-full sm:w-auto flex items-center justify-center gap-2.5 rounded-xl bg-[#1877F2] px-6 py-3 text-sm font-bold text-white hover:bg-[#166fe5] shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#1877F2] px-5 py-3 text-sm font-bold text-white hover:bg-[#166fe5] shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              <svg className="h-5 w-5 fill-current" viewBox="0 0 24 24">
+              <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
                 <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
               </svg>
-              <span>ربط صفحة فيسبوك أو إنستغرام</span>
+              <span>ربط صفحة فيسبوك</span>
             </button>
           </div>
-        </div>
+        </section>
 
-        {!isConfigured && (
-          <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-            خدمة الربط مع فيسبوك غير مفعلة حالياً من قِبل إدارة المنصة. يرجى التواصل مع الدعم الفني.
-          </p>
-        )}
-      </section>
+        {/* Instagram Connect Card */}
+        <section className="rounded-2xl border border-pink-100 bg-gradient-to-br from-white to-pink-50/40 p-6 shadow-sm flex flex-col justify-between relative overflow-hidden">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 flex items-center justify-center text-white">
+                  <svg className="h-5 w-5 fill-current" viewBox="0 0 24 24">
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-foreground">ربط حساب إنستغرام</h2>
+                  <span className="text-xs text-rose-600 font-semibold">حسابات إنستغرام الاحترافية</span>
+                </div>
+              </div>
+              <span className="rounded-full bg-pink-100/70 text-rose-700 text-xs px-2.5 py-0.5 font-medium">
+                {assets.filter((a) => a.platform === "instagram").length} حساب مربوط
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 leading-relaxed pt-1">
+              ربط حسابات إنستغرام الاحترافية المربوطة بصفحاتك للرد التلقائي على منشورات الـ Reels والمنشورات والخاص.
+            </p>
+          </div>
+
+          <div className="pt-5 mt-auto">
+            <button
+              type="button"
+              disabled={!isConfigured}
+              onClick={() => go("/api/v1/meta/oauth/start")}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 px-5 py-3 text-sm font-bold text-white hover:opacity-95 shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
+                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+              </svg>
+              <span>ربط حساب إنستغرام</span>
+            </button>
+          </div>
+        </section>
+      </div>
+
+      {!isConfigured && (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          خدمة الربط غير مفعلة حالياً من قِبل إدارة المنصة. يرجى التواصل مع الدعم الفني.
+        </p>
+      )}
 
       {/* Connected Assets List */}
       <section className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between border-b border-border pb-3">
-          <h2 className="text-base font-bold text-foreground">{C.assets.title}</h2>
-          <span className="text-xs text-slate-400 font-semibold">{assets.length} صفحة مربوطة</span>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-bold text-foreground">{C.assets.title}</h2>
+            <div className="flex gap-1.5 text-xs">
+              <span className="rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 border border-blue-200">
+                {assets.filter((a) => a.platform === "facebook").length} فيسبوك
+              </span>
+              <span className="rounded-full bg-pink-50 text-rose-700 px-2 py-0.5 border border-pink-200">
+                {assets.filter((a) => a.platform === "instagram").length} إنستغرام
+              </span>
+            </div>
+          </div>
+          <span className="text-xs text-slate-400 font-semibold">{assets.length} أصل مربوط</span>
         </div>
 
         {assets.length === 0 ? (
@@ -226,7 +288,7 @@ function ConnectionsInner() {
             <span className="text-3xl block">📭</span>
             <p className="text-sm font-semibold text-slate-600">{C.assets.empty}</p>
             <p className="text-xs text-slate-400">
-              اضغط على زر &ldquo;ربط صفحة فيسبوك أو إنستغرام&rdquo; أعلاه لاختيار صفحاتك وبدء تشغيل الردود.
+              اضغط على زر &ldquo;ربط صفحة فيسبوك&rdquo; أو &ldquo;ربط حساب إنستغرام&rdquo; لاختيار صفحاتك وحساباتك وبدء تشغيل الردود.
             </p>
           </div>
         ) : (
