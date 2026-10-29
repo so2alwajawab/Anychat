@@ -28,7 +28,7 @@ exports[`FlowTemplatesModal > renders modal and template list with accessible di
               class="text-xl font-bold text-foreground"
               id="templates-modal-title"
             >
-              قوالب أتمتة ManyChat الجاهزة
+              قوالب أتمتة الردود الجاهزة
             </h2>
             <span
               class="rounded-full bg-brand/10 text-brand px-2.5 py-0.5 text-xs font-bold"

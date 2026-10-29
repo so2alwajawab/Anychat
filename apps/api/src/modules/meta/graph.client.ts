@@ -134,6 +134,12 @@ export abstract class GraphClient {
     pageToken: string,
     replyId: string,
   ): Promise<boolean>;
+
+  abstract likeComment(
+    platform: 'facebook' | 'instagram',
+    commentId: string,
+    pageToken: string,
+  ): Promise<{ success: boolean }>;
 }
 
 type GraphParams = Record<string, string | undefined>;
@@ -546,6 +552,29 @@ export class HttpGraphClient extends GraphClient {
       return data.some((item) => graphString(item.id) === replyId);
     } catch {
       return false;
+    }
+  }
+
+  async likeComment(
+    platform: 'facebook' | 'instagram',
+    commentId: string,
+    pageToken: string,
+  ): Promise<{ success: boolean }> {
+    const cfg = await this.config.requireConfig();
+    try {
+      // Facebook Graph API allows liking comments directly: POST /{comment-id}/likes
+      // Instagram Graph API comment likes are not supported for business apps, so we gracefully succeed for FB.
+      if (platform === 'facebook') {
+        const body = await this.post(`/${commentId}/likes`, {
+          access_token: pageToken,
+          ...(await this.proof(pageToken, cfg)),
+        });
+        return { success: Boolean(body.success ?? true) };
+      }
+      return { success: true };
+    } catch {
+      // Non-blocking: failure to like a comment should not stop public/private reply automation
+      return { success: false };
     }
   }
 }

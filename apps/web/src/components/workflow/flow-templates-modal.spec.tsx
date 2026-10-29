@@ -27,7 +27,7 @@ describe("FlowTemplatesModal", () => {
     const dialog = screen.getByRole("dialog");
     expect(dialog).toBeInTheDocument();
     expect(dialog).toHaveAttribute("aria-modal", "true");
-    expect(screen.getByText("قوالب أتمتة ManyChat الجاهزة")).toBeInTheDocument();
+    expect(screen.getByText("قوالب أتمتة الردود الجاهزة")).toBeInTheDocument();
     expect(screen.getByText("استفسارات الأسعار والطلب المباشر")).toBeInTheDocument();
 
     // Snapshot test

@@ -142,7 +142,7 @@ export default function WorkflowsPage() {
   const [postSearch, setPostSearch] = useState("");
   const [postPlatformFilter, setPostPlatformFilter] = useState<"all" | "facebook" | "instagram">("all");
 
-  // ManyChat Features: Templates Modal, Sidebar Tabs, Negative Keywords & Action Buttons
+  // Advanced Workflow Features: Templates Modal, Sidebar Tabs, Negative Keywords & Action Buttons
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<"inspector" | "phone">("inspector");
 
@@ -758,12 +758,12 @@ export default function WorkflowsPage() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                aria-label="فتح نافذة قوالب أتمتة ManyChat الجاهزة"
+                aria-label="فتح نافذة قوالب الأتمتة الجاهزة"
                 onClick={() => setIsTemplateModalOpen(true)}
                 className="rounded-xl border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-bold text-purple-700 hover:bg-purple-100 transition shadow-2xs flex items-center gap-1.5 focus:ring-2 focus:ring-purple-400 focus:outline-hidden"
               >
                 <span>⚡</span>
-                <span>قوالب جاهزة (ManyChat)</span>
+                <span>قوالب جاهزة</span>
               </button>
 
               <button
@@ -864,11 +864,11 @@ export default function WorkflowsPage() {
           )}
 
           {/* Main Visual Workspace: Canvas + Inspector Sidebar */}
-          <div className="grid grid-cols-1 gap-4 lg:h-[calc(100vh-250px)] lg:min-h-[600px] lg:grid-cols-12">
+          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-12 lg:h-[calc(100vh-250px)] lg:min-h-[600px]">
             {/* Canvas */}
-            <div className="h-[70vh] lg:col-span-7 lg:h-auto xl:col-span-8 rounded-2xl border border-border bg-slate-50 relative overflow-hidden shadow-inner">
+            <div className="h-[55vh] min-h-[420px] lg:col-span-7 lg:h-auto xl:col-span-8 rounded-2xl border border-border bg-slate-50 relative overflow-hidden shadow-inner">
               {/* Palette floating buttons */}
-              <div className="absolute top-3 right-3 z-10 flex flex-wrap gap-1.5 bg-white/90 p-1.5 rounded-xl border border-border shadow-sm backdrop-blur-xs">
+              <div className="absolute top-2 right-2 max-w-[calc(100%-1rem)] overflow-x-auto z-10 flex flex-wrap gap-1 bg-white/95 p-1.5 rounded-xl border border-border shadow-sm backdrop-blur-xs">
                 <span className="text-[11px] font-semibold text-slate-500 self-center px-1">إضافة عقدة:</span>
                 <button
                   type="button"
@@ -925,7 +925,7 @@ export default function WorkflowsPage() {
             {/* Inspector Sidebar / Phone Preview */}
             <div className="lg:col-span-5 xl:col-span-4 rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-col justify-between overflow-y-auto">
               <div>
-                {/* ManyChat Sidebar Tabs Switcher */}
+                {/* Sidebar Tabs Switcher */}
                 <div className="flex rounded-xl bg-slate-100 p-1 mb-4 border border-slate-200">
                   <button
                     type="button"
@@ -957,7 +957,7 @@ export default function WorkflowsPage() {
                     <div className="flex items-center justify-between border-b border-border pb-2.5">
                       <div>
                         <h3 className="font-bold text-sm text-foreground">محاكي الموبايل التفاعلي</h3>
-                        <p className="text-[11px] text-slate-400">معاينة حية للمنشور والتعليقات ورسائل الخاص كـ ManyChat</p>
+                        <p className="text-[11px] text-slate-400">معاينة حية للمنشور والتعليقات ورسائل الخاص</p>
                       </div>
                       <span className="rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5">
                         مباشر (Live)
@@ -1075,7 +1075,7 @@ export default function WorkflowsPage() {
                         </select>
                       </div>
 
-                      {/* ManyChat Trigger Match Strategy */}
+                      {/* Trigger Match Strategy */}
                       <div>
                         <div className="flex items-center justify-between mb-1.5">
                           <label className="font-bold text-slate-700">نمط تشغيل الردود (Trigger Matching)</label>
@@ -1109,7 +1109,7 @@ export default function WorkflowsPage() {
                         </div>
                       </div>
 
-                      {/* Post Scope Selection (Manychat style 3 Cards) */}
+                      {/* Post Scope Selection (3 Cards) */}
                       <div>
                         <div className="flex items-center justify-between mb-1.5">
                           <label className="font-bold text-slate-700">نطاق المنشورات المستهدفة</label>
@@ -1616,8 +1616,8 @@ export default function WorkflowsPage() {
                         </label>
                       </div>
 
-                      {/* Image Attachment */}
-                      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+                      {/* Image Attachment (Direct File Upload & URL fallback) */}
+                      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2.5">
                         <div className="flex items-center justify-between">
                           <label className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
                             <span>🖼️</span>
@@ -1627,21 +1627,33 @@ export default function WorkflowsPage() {
                             <button
                               type="button"
                               onClick={() => updateSelectedNodeData("imageUrl", undefined)}
-                              className="text-[11px] font-semibold text-red-600 hover:text-red-700"
+                              className="text-[11px] font-semibold text-red-600 hover:text-red-700 cursor-pointer"
                             >
                               ✕ إزالة الصورة
                             </button>
                           )}
                         </div>
 
-                        <input
-                          type="url"
-                          value={(selectedNode.data.imageUrl as string) ?? ""}
-                          onChange={(e) => updateSelectedNodeData("imageUrl", e.target.value.trim() || undefined)}
-                          placeholder="https://example.com/image.jpg"
-                          className="w-full rounded-xl border border-border bg-white px-3 py-2 text-xs outline-none focus:border-brand"
-                          dir="ltr"
-                        />
+                        {/* Direct File Upload Button */}
+                        <div className="flex items-center gap-2">
+                          <label className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:border-brand cursor-pointer transition">
+                            <span>📁 رفع صورة من جهازك</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                  updateSelectedNodeData("imageUrl", reader.result as string);
+                                };
+                                reader.readAsDataURL(file);
+                              }}
+                            />
+                          </label>
+                        </div>
 
                         {(selectedNode.data.imageUrl as string) && (
                           <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
@@ -1685,8 +1697,8 @@ export default function WorkflowsPage() {
                         }}
                       />
 
-                      {/* Image Attachment */}
-                      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+                      {/* Image Attachment (Direct File Upload) */}
+                      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2.5">
                         <div className="flex items-center justify-between">
                           <label className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
                             <span>🖼️</span>
@@ -1696,21 +1708,33 @@ export default function WorkflowsPage() {
                             <button
                               type="button"
                               onClick={() => updateSelectedNodeData("imageUrl", undefined)}
-                              className="text-[11px] font-semibold text-red-600 hover:text-red-700"
+                              className="text-[11px] font-semibold text-red-600 hover:text-red-700 cursor-pointer"
                             >
                               ✕ إزالة الصورة
                             </button>
                           )}
                         </div>
 
-                        <input
-                          type="url"
-                          value={(selectedNode.data.imageUrl as string) ?? ""}
-                          onChange={(e) => updateSelectedNodeData("imageUrl", e.target.value.trim() || undefined)}
-                          placeholder="https://example.com/banner.jpg"
-                          className="w-full rounded-xl border border-border bg-white px-3 py-2 text-xs outline-none focus:border-brand"
-                          dir="ltr"
-                        />
+                        {/* Direct File Upload Button */}
+                        <div className="flex items-center gap-2">
+                          <label className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:border-brand cursor-pointer transition">
+                            <span>📁 رفع صورة من جهازك</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                  updateSelectedNodeData("imageUrl", reader.result as string);
+                                };
+                                reader.readAsDataURL(file);
+                              }}
+                            />
+                          </label>
+                        </div>
 
                         {(selectedNode.data.imageUrl as string) && (
                           <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
@@ -1724,7 +1748,7 @@ export default function WorkflowsPage() {
                         )}
                       </div>
 
-                      {/* Interactive Action Buttons Manager (ManyChat buttons) */}
+                      {/* Interactive Action Buttons Manager */}
                       <ActionButtonsManager
                         buttons={
                           (Array.isArray(selectedNode.data.buttons)
@@ -2117,7 +2141,7 @@ export default function WorkflowsPage() {
         </div>
       )}
 
-      {/* ManyChat Flow Templates Modal */}
+      {/* Flow Templates Modal */}
       <FlowTemplatesModal
         isOpen={isTemplateModalOpen}
         onClose={() => setIsTemplateModalOpen(false)}

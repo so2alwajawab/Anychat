@@ -186,6 +186,7 @@ export class ExecutionService {
           message?: string;
           messages?: string[];
           imageUrl?: string;
+          autoLike?: boolean;
         };
 
         if (nextNode.type === 'action.use_template') {
@@ -234,6 +235,7 @@ export class ExecutionService {
           targetCommentId: comment.externalCommentId,
           renderedMessage: rendered,
           imageUrl: replyNodeData.imageUrl,
+          autoLike: replyNodeData.autoLike ?? true,
         });
 
         await this.prisma.nodeExecution.create({

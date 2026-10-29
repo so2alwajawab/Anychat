@@ -15,6 +15,7 @@ export interface ExecuteReplyInput {
   targetCommentId: string;
   renderedMessage: string;
   imageUrl?: string;
+  autoLike?: boolean;
 }
 
 export interface ExecutePrivateReplyInput {
@@ -227,6 +228,15 @@ export class OutboundService {
 
     // 4. Graph API execution
     try {
+      // Auto-like comment if requested
+      if (input.autoLike) {
+        try {
+          await this.graph.likeComment(input.platform, input.targetCommentId, pageToken);
+        } catch (likeErr) {
+          this.logger.warn(`Failed to auto-like comment ${input.targetCommentId}: ${(likeErr as Error).message}`);
+        }
+      }
+
       let sendResult: { id: string };
       if (input.platform === 'instagram') {
         sendResult = await this.graph.publishInstagramCommentReply(

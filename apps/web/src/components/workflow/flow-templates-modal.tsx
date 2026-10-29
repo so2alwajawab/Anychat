@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { MANYCHAT_FLOW_TEMPLATES, type FlowTemplate } from "./flow-templates";
+import { FLOW_TEMPLATES, type FlowTemplate } from "./flow-templates";
 
 export interface FlowTemplatesModalProps {
   isOpen: boolean;
@@ -10,7 +10,7 @@ export interface FlowTemplatesModalProps {
 }
 
 /**
- * نافذة اختيار قوالب ManyChat الجاهزة (FlowTemplatesModal)
+ * نافذة اختيار القوالب الجاهزة (FlowTemplatesModal)
  * مدعومة بالكامل لمعايير الوصول (WCAG Accessibility) والتركيز التلقائي وإغلاق بـ ESC.
  */
 export function FlowTemplatesModal({ isOpen, onClose, onApplyTemplate }: FlowTemplatesModalProps) {
@@ -53,7 +53,7 @@ export function FlowTemplatesModal({ isOpen, onClose, onApplyTemplate }: FlowTem
             <div className="flex items-center gap-2">
               <span className="text-xl">⚡</span>
               <h2 id="templates-modal-title" className="text-xl font-bold text-foreground">
-                قوالب أتمتة ManyChat الجاهزة
+                قوالب أتمتة الردود الجاهزة
               </h2>
               <span className="rounded-full bg-brand/10 text-brand px-2.5 py-0.5 text-xs font-bold">
                 جاهز للاستخدام بنقرة واحدة
@@ -76,7 +76,7 @@ export function FlowTemplatesModal({ isOpen, onClose, onApplyTemplate }: FlowTem
 
         {/* Templates Grid */}
         <div className="mt-4 flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4 pe-1">
-          {MANYCHAT_FLOW_TEMPLATES.map((tpl) => (
+          {FLOW_TEMPLATES.map((tpl) => (
             <div
               key={tpl.id}
               className="rounded-2xl border border-border bg-white p-5 shadow-xs hover:border-brand/50 hover:shadow-md transition flex flex-col justify-between"

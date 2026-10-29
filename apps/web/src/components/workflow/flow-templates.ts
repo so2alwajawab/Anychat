@@ -11,7 +11,7 @@ export interface FlowTemplate {
   edges: Edge[];
 }
 
-export const MANYCHAT_FLOW_TEMPLATES: FlowTemplate[] = [
+export const FLOW_TEMPLATES: FlowTemplate[] = [
   {
     id: "price-inquiry",
     title: "استفسارات الأسعار والطلب المباشر",
